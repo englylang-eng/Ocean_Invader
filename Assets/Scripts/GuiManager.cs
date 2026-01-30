@@ -388,28 +388,20 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
         // Ensure it's last sibling to be on top
         obj.transform.SetAsLastSibling();
-        // Reset Scale
+        // Reset Scale (Will be animated)
         obj.transform.localScale = Vector3.one;
 
         if (txt != null)
         {
-            txt.resizeTextForBestFit = false; // Disable auto-size to ensure it stays small
+            txt.resizeTextForBestFit = false; 
             txt.text = text;
             txt.color = color;
             txt.alignment = TextAnchor.MiddleCenter;
-            txt.fontSize = 24; // Larger for readability (was 15)
+            // High quality trick: Large font size, scaled down object
+            txt.fontSize = 48; // Was 24
             txt.fontStyle = FontStyle.Bold; 
             
-            // Add Shadow for better contrast if missing
-            /*
-            if (obj.GetComponent<Shadow>() == null)
-            {
-                Shadow s = obj.AddComponent<Shadow>();
-                s.effectColor = new Color(0, 0, 0, 0.5f);
-                s.effectDistance = new Vector2(2, -2);
-            }
-            */
-            // Remove Shadow if it exists (per user request)
+            // Remove Shadow if it exists
             Shadow shadow = obj.GetComponent<Shadow>();
             if (shadow != null) Destroy(shadow);
         }
@@ -419,7 +411,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             tmp.text = text;
             tmp.color = color;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 24;
+            tmp.fontSize = 48; // Was 24
             tmp.fontStyle = FontStyles.Bold;
         }
 
@@ -438,7 +430,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     private IEnumerator AnimateFloatingText(GameObject obj, RectTransform rt, Text txt, TextMeshProUGUI tmp)
     {
-        float duration = 0.8f; // Faster, punchier (was 1.0f)
+        float duration = 0.8f; 
         float elapsed = 0f;
         
         Vector3 startPos = (rt != null) ? rt.position : Vector3.zero;
@@ -447,9 +439,9 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         float driftX = UnityEngine.Random.Range(-30f, 30f); 
         Vector3 endPos = startPos + Vector3.up * 100f + Vector3.right * driftX;
 
-        // Scale Logic
-        Vector3 originalScale = Vector3.one;
-        if(rt != null) rt.localScale = Vector3.zero; // Start invisible/tiny
+        // Scale Logic: Start tiny, target scale 0.5 (for high quality small text)
+        Vector3 targetScale = Vector3.one * 0.5f; 
+        if(rt != null) rt.localScale = Vector3.zero; 
 
         Color startColor = Color.white;
         if (txt != null) startColor = txt.color;
@@ -464,36 +456,34 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             elapsed += Time.deltaTime;
             float t = elapsed / duration;
 
-            // 1. Pop In (Elastic/Back Out)
-            // Scale goes 0 -> 1.5 -> 1.0 quickly
+            // 1. Pop In (EaseOutBack - Cleaner, no double bounce)
             if (rt != null)
             {
-                float scaleDuration = 0.4f;
+                float scaleDuration = 0.3f;
                 if (t < scaleDuration)
                 {
                     float st = t / scaleDuration;
-                    // Custom Elastic Pop
-                    float s = Mathf.Sin(st * Mathf.PI * 0.5f); // EaseOutSine
-                    float overshoot = 1.0f + Mathf.Sin(st * Mathf.PI) * 0.5f; // Bump to 1.5
-                    rt.localScale = originalScale * Mathf.Lerp(0f, overshoot, st);
+                    // Standard EaseOutBack
+                    float c1 = 1.70158f;
+                    float c3 = c1 + 1f;
+                    float ease = 1f + c3 * Mathf.Pow(st - 1f, 3f) + c1 * Mathf.Pow(st - 1f, 2f);
+                    
+                    rt.localScale = Vector3.LerpUnclamped(Vector3.zero, targetScale, ease);
                 }
                 else
                 {
-                    // Settle back to 1.0
-                    float settleT = (t - scaleDuration) / (1f - scaleDuration);
-                    rt.localScale = Vector3.Lerp(originalScale * 1.2f, originalScale, settleT); 
+                    rt.localScale = targetScale;
                 }
             }
 
-            // 2. Position (EaseOutQuad - Fast then slow)
+            // 2. Position (Linear is smoother for floating)
             if (rt != null)
             {
-                float moveT = 1f - Mathf.Pow(1f - t, 2f); // EaseOutQuad
-                rt.position = Vector3.Lerp(startPos, endPos, moveT);
+                rt.position = Vector3.Lerp(startPos, endPos, t);
             }
 
-            // 3. Fade Out (Last 30%)
-            float fadeStart = 0.7f;
+            // 3. Fade Out (Last 50% for smoother exit)
+            float fadeStart = 0.5f;
             Color currentColor = startColor;
             if (t > fadeStart)
             {

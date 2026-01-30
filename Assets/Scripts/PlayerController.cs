@@ -524,10 +524,10 @@ public class PlayerController : MonoBehaviour
         float speedFactor = 0f;
         bool hasInput = false;
         bool boostInput = false;
-        // Robust Mobile Check (Matches MobileInputLoader)
+        // Robust Mobile Check (Matches MobileJoystick logic)
+        // Fix: Removed Input.touchSupported to prevent false positives on Desktop with touch screens
         bool isMobile = Application.isMobilePlatform || 
-                       UnityEngine.Device.SystemInfo.deviceType == DeviceType.Handheld || 
-                       Input.touchSupported;
+                       UnityEngine.Device.SystemInfo.deviceType == DeviceType.Handheld;
 
         // 0. Mobile Joystick (New)
         if (MobileJoystick.Instance != null && MobileJoystick.Instance.InputDirection != Vector2.zero)
@@ -842,7 +842,7 @@ public class PlayerController : MonoBehaviour
 
     void Eat(Fish fish)
     {
-        if (fish == null) return;
+        if (fish == null || !fish.gameObject.activeSelf) return;
 
         //Play sound
         if( audioSource != null && biteSounds.Length > 0)

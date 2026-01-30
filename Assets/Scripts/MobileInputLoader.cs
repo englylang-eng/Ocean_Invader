@@ -24,7 +24,9 @@ public class MobileInputLoader : MonoBehaviour
         }
 
         // Check for Touch Support (Handles Simulator & Touch Laptops)
-        if (Input.touchSupported)
+        // Fix: Removed simple Input.touchSupported check because it returns true on many desktop devices
+        // We rely on Application.isMobilePlatform or explicit simulation
+        if (!Application.isEditor && Input.touchSupported && (Application.isMobilePlatform || UnityEngine.Device.SystemInfo.deviceType == DeviceType.Handheld))
         {
             isMobile = true;
         }

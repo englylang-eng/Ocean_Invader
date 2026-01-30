@@ -40,7 +40,8 @@ public class MobileInputSetup : EditorWindow
         // IMPROVED SIZING:
         // Standard recommendation for Virtual Joysticks is a large touch area.
         // 360px on 1080p is ~33% of screen height, ensuring it's hard to miss.
-        bgRect.anchoredPosition = new Vector2(200, 150); 
+        // Fix: Move up to 250 to avoid bottom safe area
+        bgRect.anchoredPosition = new Vector2(200, 250); 
         bgRect.sizeDelta = new Vector2(360, 360); 
 
         // 3. Create Joystick Handle

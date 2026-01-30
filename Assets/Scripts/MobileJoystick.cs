@@ -32,7 +32,8 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
         // Determine if we should show or hide
         bool shouldShow = false;
 
-        if (Application.isMobilePlatform || SystemInfo.deviceType == DeviceType.Handheld || Input.touchSupported)
+        // Fix: Removed Input.touchSupported to prevent joystick from appearing on Desktop devices with touch screens
+        if (Application.isMobilePlatform || SystemInfo.deviceType == DeviceType.Handheld)
         {
             shouldShow = true;
         }
@@ -64,7 +65,8 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
             if (background != null && background.sizeDelta.x < 300)
             {
                 background.sizeDelta = new Vector2(360, 360);
-                background.anchoredPosition = new Vector2(200, 150); // Improved position
+                // Fix: Move up to avoid safe area/home bar issues (was 150)
+                background.anchoredPosition = new Vector2(200, 250); 
                 
                 if (handle != null)
                 {
