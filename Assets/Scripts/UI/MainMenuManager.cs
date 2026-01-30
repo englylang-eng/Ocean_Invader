@@ -61,6 +61,28 @@ public class MainMenuManager : MonoBehaviour
 
         // Ensure correct initial state
         ShowMain();
+
+        // Enforce Mobile Responsiveness (Canvas Scaling)
+        SetupMobileUI();
+    }
+
+    private void SetupMobileUI()
+    {
+        // Find Canvas (attached to this or parent)
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null && mainPanel != null) canvas = mainPanel.GetComponentInParent<Canvas>();
+
+        if (canvas != null)
+        {
+            CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
+
+            // Set to Scale With Screen Size (Crucial for Mobile)
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080); // Standard HD Landscape
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f; // Balance width/height matching
+        }
     }
 
     private void SetupButton(Button btn, UnityEngine.Events.UnityAction action)
