@@ -439,8 +439,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         float driftX = UnityEngine.Random.Range(-30f, 30f); 
         Vector3 endPos = startPos + Vector3.up * 100f + Vector3.right * driftX;
 
-        // Scale Logic: Start tiny, target scale 0.5 (for high quality small text)
-        Vector3 targetScale = Vector3.one * 0.5f; 
+        // Scale Logic: Start tiny, target scale 0.3 (for high quality small text)
+        Vector3 targetScale = Vector3.one * 0.3f; 
         if(rt != null) rt.localScale = Vector3.zero; 
 
         Color startColor = Color.white;

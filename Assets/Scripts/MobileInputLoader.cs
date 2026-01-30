@@ -62,6 +62,16 @@ public class MobileInputLoader : MonoBehaviour
                 Debug.LogError("MobileInputLoader: MobileInputCanvas prefab is missing! Please run Tools > Setup Mobile Input.");
             }
         }
+        else
+        {
+            // FORCE CLEANUP: Ensure no mobile controls exist on Desktop
+            if (MobileJoystick.Instance != null)
+            {
+                // Destroy the entire canvas/root of the joystick
+                Destroy(MobileJoystick.Instance.transform.root.gameObject);
+                Debug.Log("MobileInputLoader: Removed Mobile Joystick for Desktop platform.");
+            }
+        }
     }
 
     private void OnDestroy()

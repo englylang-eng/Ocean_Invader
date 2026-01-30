@@ -38,11 +38,9 @@ public class MobileInputSetup : EditorWindow
         bgRect.anchorMax = new Vector2(0f, 0f);
         bgRect.pivot = new Vector2(0f, 0f);
         // IMPROVED SIZING:
-        // Standard recommendation for Virtual Joysticks is a large touch area.
-        // 360px on 1080p is ~33% of screen height, ensuring it's hard to miss.
-        // Fix: Move up to 250 to avoid bottom safe area
+        // Reduced size per user request for easier handling
         bgRect.anchoredPosition = new Vector2(200, 250); 
-        bgRect.sizeDelta = new Vector2(360, 360); 
+        bgRect.sizeDelta = new Vector2(280, 280); 
 
         // 3. Create Joystick Handle
         GameObject handle = new GameObject("JoystickHandle");
@@ -57,15 +55,14 @@ public class MobileInputSetup : EditorWindow
         handleRect.anchorMax = new Vector2(0.5f, 0.5f);
         handleRect.pivot = new Vector2(0.5f, 0.5f);
         handleRect.anchoredPosition = Vector2.zero;
-        handleRect.sizeDelta = new Vector2(160, 160); // Slightly larger handle
+        handleRect.sizeDelta = new Vector2(120, 120); // Smaller handle
 
         // 4. Add MobileJoystick Component
         MobileJoystick joystick = bg.AddComponent<MobileJoystick>();
         joystick.background = bgRect;
         joystick.handle = handleRect;
-        // Reduce range to 0.6f so the user doesn't have to drag the full 180px radius to get max speed.
-        // 180px * 0.6 = 108px travel distance (Quick & Responsive)
-        joystick.handleRange = 0.6f; 
+        // Reduce range to 0.5f for quicker response
+        joystick.handleRange = 0.5f; 
         joystick.hideOnDesktop = true;
 
         // 5. Create Boost Button (Background)
