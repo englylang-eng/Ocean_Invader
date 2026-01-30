@@ -40,8 +40,8 @@ public class MobileInputSetup : EditorWindow
         // IMPROVED SIZING:
         // Reduced size per user request for easier handling
         bgRect.anchoredPosition = new Vector2(200, 250); 
-        bgRect.sizeDelta = new Vector2(280, 280); 
-
+        bgRect.sizeDelta = new Vector2(250, 250); // Standardized to 250
+        
         // 3. Create Joystick Handle
         GameObject handle = new GameObject("JoystickHandle");
         handle.transform.SetParent(bg.transform, false);
@@ -55,7 +55,7 @@ public class MobileInputSetup : EditorWindow
         handleRect.anchorMax = new Vector2(0.5f, 0.5f);
         handleRect.pivot = new Vector2(0.5f, 0.5f);
         handleRect.anchoredPosition = Vector2.zero;
-        handleRect.sizeDelta = new Vector2(120, 120); // Smaller handle
+        handleRect.sizeDelta = new Vector2(100, 100); // Smaller handle for 250 bg
 
         // 4. Add MobileJoystick Component
         MobileJoystick joystick = bg.AddComponent<MobileJoystick>();
@@ -78,7 +78,7 @@ public class MobileInputSetup : EditorWindow
         boostRect.pivot = new Vector2(1f, 0f);
         // Large target for action button
         boostRect.anchoredPosition = new Vector2(-200, 150); 
-        boostRect.sizeDelta = new Vector2(280, 280); // Resized to match Joystick
+        boostRect.sizeDelta = new Vector2(250, 250); // Resized to match Joystick (250)
         
         // Add Script
         boostBtn.AddComponent<MobileBoostButton>();
