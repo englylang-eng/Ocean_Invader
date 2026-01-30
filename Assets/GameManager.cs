@@ -127,7 +127,7 @@ public class GameManager : MonoBehaviour
         EventManager.Trigger<bool>("gamePaused", isPaused);
 
         // Toggle cursor visibility: Show when paused, Hide when playing
-        Cursor.visible = isPaused;
+        Cursor.visible = true; // Always visible per user request
         
         if( isPaused)
         {

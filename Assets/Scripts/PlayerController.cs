@@ -226,9 +226,9 @@ public class PlayerController : MonoBehaviour
             Debug.Log(gameObject.name + " is missing audio source component");
 
         // Hide mouse cursor for original-game feel
-        Cursor.visible = false; // Feeding Frenzy style: cursor is hidden during gameplay
+        Cursor.visible = true; // Was false - Enabled per user request to allow clicking UI
         // Fix: Confine cursor to window to prevent triggering browser UI/Leaving window
-        Cursor.lockState = CursorLockMode.Confined;
+        Cursor.lockState = CursorLockMode.None; // Was Confined - Set to None to ensure freedom
 
         // Initialize XP Bar
         currentXp = 0; // Explicitly reset XP

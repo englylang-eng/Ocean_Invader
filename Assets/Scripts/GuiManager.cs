@@ -5,6 +5,8 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
 using Rhinotap.Toolkit;
+using UnityEngine.EventSystems;
+// using UnityEngine.InputSystem.UI;
 
 public class GuiManager : Singleton<GuiManager>
 {
@@ -77,6 +79,22 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         if (resumeBtn == null) resumeBtn = FindUIObjectByName("ResumeButton", "ResumeBtn", "BtnResume", "Resume");
         if (restartBtn == null) restartBtn = FindUIObjectByName("RestartButton", "RestartBtn", "BtnRestart");
         if (menuBtn == null) menuBtn = FindUIObjectByName("MenuButton", "MenuBtn", "BtnMenu", "MainMenuButton");
+
+        // Ensure EventSystem exists (Standard Unity UI Requirement)
+        if (FindObjectOfType<EventSystem>() == null)
+        {
+            // Create standard EventSystem with StandaloneInputModule (Works out-of-the-box for mouse)
+            GameObject eventSystem = new GameObject("EventSystem");
+            eventSystem.AddComponent<EventSystem>();
+            eventSystem.AddComponent<StandaloneInputModule>();
+        }
+
+        // Ensure EventManager exists (Crucial for Pause Logic)
+        if (FindObjectOfType<EventManager>() == null)
+        {
+            GameObject em = new GameObject("EventManager");
+            em.AddComponent<EventManager>();
+        }
 
         // Setup Buttons (Listeners + Hover Effects)
         SetupButton(resumeBtn, () => GameManager.instance.PlayPause()); // Resume just toggles pause
@@ -656,23 +674,18 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     private void TogglePauseBtn(bool isPaused)
     {
-        if( pauseBtn == null || resumeBtn == null)
-        {
-            // Debug.Log("Missing pause/resume btns");
-            return;
-        }
-
+        // Robust Toggle: Check each button individually to prevent failure if one is missing
         if(isPaused)
         {
-            pauseBtn.SetActive(false);
-            resumeBtn.SetActive(true);
+            if(pauseBtn != null) pauseBtn.SetActive(false);
+            if(resumeBtn != null) resumeBtn.SetActive(true);
             if(restartBtn != null) restartBtn.SetActive(true);
             if(menuBtn != null) menuBtn.SetActive(true);
             if(pausedBg != null) pausedBg.SetActive(true);
         }else
         {
-            pauseBtn.SetActive(true);
-            resumeBtn.SetActive(false);
+            if(pauseBtn != null) pauseBtn.SetActive(true);
+            if(resumeBtn != null) resumeBtn.SetActive(false);
             if(restartBtn != null) restartBtn.SetActive(false);
             if(menuBtn != null) menuBtn.SetActive(false);
             if(pausedBg != null) pausedBg.SetActive(false);
