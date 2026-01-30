@@ -79,6 +79,19 @@ public class MobileInputLoader : MonoBehaviour
                 }
                 Debug.Log("MobileInputLoader: Removed Mobile Joystick for Desktop platform.");
             }
+
+            // Also check for Boost Button separately just in case
+            if (MobileBoostButton.Instance != null)
+            {
+                if (MobileBoostButton.Instance.transform.root.name.Contains("MobileInputCanvas"))
+                {
+                    Destroy(MobileBoostButton.Instance.transform.root.gameObject);
+                }
+                else
+                {
+                    Destroy(MobileBoostButton.Instance.gameObject);
+                }
+            }
         }
     }
 

@@ -78,7 +78,7 @@ public class MobileInputSetup : EditorWindow
         boostRect.pivot = new Vector2(1f, 0f);
         // Large target for action button
         boostRect.anchoredPosition = new Vector2(-200, 150); 
-        boostRect.sizeDelta = new Vector2(320, 320); 
+        boostRect.sizeDelta = new Vector2(280, 280); // Resized to match Joystick
         
         // Add Script
         boostBtn.AddComponent<MobileBoostButton>();

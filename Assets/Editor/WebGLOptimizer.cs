@@ -70,9 +70,17 @@ public class WebGLOptimizer : EditorWindow
 
         BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
         buildPlayerOptions.scenes = EditorBuildSettingsScene.GetActiveSceneList(EditorBuildSettings.scenes);
-        // Build to docs/index.html so that Unity names the files "index" (e.g. index.loader.js)
-        // instead of "docs" (docs.loader.js), ensuring compatibility with the template.
-        buildPlayerOptions.locationPathName = Path.Combine(buildPath, "index.html");
+        
+        if (buildPlayerOptions.scenes.Length == 0)
+        {
+            Debug.LogError("No scenes are enabled in the Build Settings! Go to File > Build Settings and add your scenes.");
+            return;
+        }
+
+        // Build to "docs" folder directly. 
+        // Unity will name files based on the folder name (e.g. docs.loader.js).
+        // The index.html generated from the template will automatically reference these correct names.
+        buildPlayerOptions.locationPathName = buildPath; 
         buildPlayerOptions.target = BuildTarget.WebGL;
         buildPlayerOptions.options = BuildOptions.None;
 
@@ -88,6 +96,16 @@ public class WebGLOptimizer : EditorWindow
         if (summary.result == UnityEditor.Build.Reporting.BuildResult.Failed)
         {
             Debug.LogError("Build failed");
+            foreach (var step in report.steps)
+            {
+                foreach (var message in step.messages)
+                {
+                    if (message.type == LogType.Error || message.type == LogType.Exception)
+                    {
+                        Debug.LogError($"Build Error: {message.content}");
+                    }
+                }
+            }
         }
     }
 
