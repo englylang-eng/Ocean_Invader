@@ -49,6 +49,102 @@ public class Fish : MonoBehaviour
     private Collider2D myCollider;
     private float eatCheckTimer = 0f;
 
+    // Particles
+    private ParticleSystem eatEffect;
+    private Material bubbleMaterial;
+    private Texture2D bubbleTexture;
+    private static Shader cachedParticleShader;
+
+    public void InitializeParticles(Material mat, Texture2D tex)
+    {
+        this.bubbleMaterial = mat;
+        this.bubbleTexture = tex;
+        
+        // Pre-create to be ready
+        CreateEatParticles();
+    }
+
+    private void CreateEatParticles()
+    {
+        if (eatEffect != null) return;
+
+        GameObject bubbles = new GameObject("EatBubbles");
+        bubbles.transform.SetParent(transform, false);
+        bubbles.transform.localPosition = Vector3.zero;
+
+        eatEffect = bubbles.AddComponent<ParticleSystem>();
+        var renderer = bubbles.GetComponent<ParticleSystemRenderer>();
+
+        // Main Settings
+        var main = eatEffect.main;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 2.5f);
+        main.startLifetime = new ParticleSystem.MinMaxCurve(1f, 2.5f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.2f);
+        main.gravityModifier = -0.05f;
+        main.maxParticles = 50;
+
+        // Emission
+        var emission = eatEffect.emission;
+        emission.rateOverTime = 0;
+
+        // Shape
+        var shape = eatEffect.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 0.5f;
+        shape.angle = 25f;
+
+        // Noise
+        var noise = eatEffect.noise;
+        noise.enabled = true;
+        noise.strength = 0.5f;
+        noise.frequency = 0.8f;
+        noise.scrollSpeed = 1f;
+
+        // Color
+        var col = eatEffect.colorOverLifetime;
+        col.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new GradientColorKey[] { new GradientColorKey(Color.white, 0.0f), new GradientColorKey(Color.white, 1.0f) },
+            new GradientAlphaKey[] { new GradientAlphaKey(0.7f, 0.0f), new GradientAlphaKey(0.5f, 0.8f), new GradientAlphaKey(0.0f, 1.0f) }
+        );
+        col.color = grad;
+
+        // Material
+        if (bubbleMaterial != null)
+        {
+            renderer.material = bubbleMaterial;
+        }
+        else if (bubbleTexture != null)
+        {
+             if (cachedParticleShader == null)
+             {
+                 cachedParticleShader = Shader.Find("Particles/Standard Unlit");
+                 if (cachedParticleShader == null) cachedParticleShader = Shader.Find("Sprites/Default");
+             }
+             
+             if (cachedParticleShader != null)
+             {
+                 Material mat = new Material(cachedParticleShader);
+                 mat.mainTexture = bubbleTexture;
+                 renderer.material = mat;
+             }
+        }
+        
+        renderer.sortingOrder = 5; // Visible
+    }
+
+    public void PlayEatEffect()
+    {
+        if (eatEffect != null)
+        {
+            eatEffect.Emit(10); // Burst 10 bubbles
+        }
+    }
+
     public void Die()
     {
         // Simple death logic
@@ -234,7 +330,7 @@ public class Fish : MonoBehaviour
                  if (this.level > otherFish.Level)
                  {
                      otherFish.Die();
-                     // Optional: PlayEatEffect(); if we had reference
+                     PlayEatEffect();
                  }
              }
         }

@@ -122,6 +122,11 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        // USER REQUEST: "decrease the score requirement to complete the game"
+        // Override prefab defaults for faster progression
+        baseXpRequirement = 50; 
+        levelXpIncreasePercentage = 0.15f;
+
         // FIX: Ensure MaxLevel is at least 6 (User reported Level 6 issues)
         if (maxLevel < 6)
         {

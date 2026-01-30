@@ -751,6 +751,16 @@ public class GridController : MonoBehaviour
     {
         if (fish == null) return;
 
+        // Initialize Fish Particles (User Request: All fish have eating bubbles)
+        if (player != null)
+        {
+            PlayerController pc = player.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                fish.InitializeParticles(pc.BubbleMaterial, pc.BubbleTexture);
+            }
+        }
+
         // Check if fish uses Rotation-based movement (FishAI or FishMovement)
         bool usesRotation = fish.GetComponent<FishAI>() != null || fish.GetComponent<FishMovement>() != null;
 

@@ -173,6 +173,17 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }
     }
 
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (messageFontTmp == null)
+        {
+             // Try to find default TMP font
+             messageFontTmp = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+        }
+    }
+#endif
+
     private void FixPauseLayout()
     {
         // Fix Paused BG layout: Ensure it covers the entire screen and has no rounded corners
@@ -295,7 +306,17 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             if (tmp != null)
             {
                  if (messageFontTmp != null) tmp.font = messageFontTmp;
-                 else if (tmp.font == null) tmp.font = TMP_Settings.defaultFontAsset;
+                 else if (tmp.font == null) 
+                 {
+                     // Fallback 1: Default Settings
+                     tmp.font = TMP_Settings.defaultFontAsset;
+                     
+                     // Fallback 2: Load explicit resource if default is missing
+                     if (tmp.font == null)
+                     {
+                         tmp.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                     }
+                 }
             }
             
             floatingTextPool.Enqueue(obj);
@@ -322,7 +343,11 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
                 if (tmp != null)
                 {
                      if (messageFontTmp != null) tmp.font = messageFontTmp;
-                     else if (tmp.font == null) tmp.font = TMP_Settings.defaultFontAsset;
+                     else if (tmp.font == null) 
+                     {
+                         tmp.font = TMP_Settings.defaultFontAsset;
+                         if (tmp.font == null) tmp.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                     }
                 }
 
                 return obj;
@@ -349,7 +374,11 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             if (tmp != null)
             {
                  if (messageFontTmp != null) tmp.font = messageFontTmp;
-                 else if (tmp.font == null) tmp.font = TMP_Settings.defaultFontAsset;
+                 else if (tmp.font == null) 
+                 {
+                     tmp.font = TMP_Settings.defaultFontAsset;
+                     if (tmp.font == null) tmp.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                 }
             }
             
             // Add Outline - Removed
