@@ -171,18 +171,29 @@ public class SharkHazard : MonoBehaviour
         cam = Camera.main;
 
         // Flip Sprite if moving Left
+        // AUTO-FIX: Increase shark size by 30% (User Request)
+        float sizeMultiplier = 1.3f;
+        Vector3 currentScale = transform.localScale;
+
         if (direction < 0)
         {
-            Vector3 s = transform.localScale;
-            s.x = -Mathf.Abs(s.x);
-            transform.localScale = s;
+            currentScale.x = -Mathf.Abs(currentScale.x);
         }
         else
         {
-            Vector3 s = transform.localScale;
-            s.x = Mathf.Abs(s.x);
-            transform.localScale = s;
+            currentScale.x = Mathf.Abs(currentScale.x);
         }
+        
+        // Apply multiplier (Ensure we don't apply it if it's already large? No, assume fresh spawn)
+        // Check if already scaled (just in case) - heuristic check
+        if (Mathf.Abs(currentScale.x) < 2.0f) // If it's huge, don't scale again
+        {
+            currentScale.x *= sizeMultiplier;
+            currentScale.y *= sizeMultiplier;
+            currentScale.z *= sizeMultiplier;
+        }
+
+        transform.localScale = currentScale;
 
         // Create Warning Icon
         if ((iconPrefab != null || iconSprite != null) && cam != null)

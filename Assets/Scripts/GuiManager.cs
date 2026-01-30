@@ -421,7 +421,13 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             // Spawn slightly above the eaten fish (Offset Y)
             Vector3 offsetPos = worldPos + Vector3.up * 0.8f;
             Vector3 screenPos = Camera.main.WorldToScreenPoint(offsetPos);
-            if (rt != null) rt.position = screenPos;
+            if (rt != null) 
+            {
+                rt.position = screenPos;
+                // AUTO-FIX: Increase width to prevent text wrapping/shrinking (User Request)
+                // Was likely 200, increasing to 400 to accommodate longer text like "÷100 BinÞú"
+                rt.sizeDelta = new Vector2(400, 100); 
+            }
         }
         
         // Start Animation
@@ -440,7 +446,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         Vector3 endPos = startPos + Vector3.up * 100f + Vector3.right * driftX;
 
         // Scale Logic: Start tiny, target scale 0.3 (for high quality small text)
-        Vector3 targetScale = Vector3.one * 0.3f; 
+        // AUTO-FIX: Increased from 0.3 to 0.45 per user request "seem abit shrink"
+        Vector3 targetScale = Vector3.one * 0.45f; 
         if(rt != null) rt.localScale = Vector3.zero; 
 
         Color startColor = Color.white;
