@@ -1076,7 +1076,7 @@ MonoBehaviour:
   victoryMessage: "GbGrsaTr G\xF1k)anrYcCIvitk\xF1\xFAgvK\xC1enH"
   defeatMessage: "B\xFCayamm\xFEgeTot"
   messageFont: {fileID: 0}
-  messageFontTmp: {fileID: 11400000, guid: 732df5117867a21468efdffaa698e8ab, type: 2}
+  messageFontTmp: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   ScoreText: {fileID: 10042791}
   floatingTextPrefab: {fileID: 7447932585375443293, guid: a22353b65bbe5514b9a720e3b79c5e20,
     type: 3}
