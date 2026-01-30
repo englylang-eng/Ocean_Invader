@@ -2,7 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro; // Add TMP Support
+using UnityEngine.SceneManagement;
+using TMPro;
 using Rhinotap.Toolkit;
 
 public class GuiManager : Singleton<GuiManager>
@@ -28,6 +29,10 @@ public class GuiManager : Singleton<GuiManager>
     private GameObject pauseBtn;
     [SerializeField]
     private GameObject resumeBtn;
+    [SerializeField]
+    private GameObject restartBtn; // New Restart Button
+    [SerializeField]
+    private GameObject menuBtn;    // New Main Menu Button
     [SerializeField]
     private GameObject pausedBg;
 
@@ -66,6 +71,31 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         // Simple fallback for ACTIVE objects only (Cheap, fixes dark screen if unassigned)
         if (pausedBg == null) pausedBg = GameObject.Find("PausedBG");
         if (ScoreScreen == null) ScoreScreen = GameObject.Find("ScoreScreen");
+
+        // Fallback for Buttons if not assigned
+        if (pauseBtn == null) pauseBtn = FindUIObjectByName("PauseButton", "PauseBtn", "BtnPause", "Pause");
+        if (resumeBtn == null) resumeBtn = FindUIObjectByName("ResumeButton", "ResumeBtn", "BtnResume", "Resume");
+        if (restartBtn == null) restartBtn = FindUIObjectByName("RestartButton", "RestartBtn", "BtnRestart");
+        if (menuBtn == null) menuBtn = FindUIObjectByName("MenuButton", "MenuBtn", "BtnMenu", "MainMenuButton");
+
+        // Setup Buttons (Listeners + Hover Effects)
+        SetupButton(resumeBtn, () => GameManager.instance.PlayPause()); // Resume just toggles pause
+        SetupButton(restartBtn, RestartGame);
+        SetupButton(menuBtn, GoToMainMenu);
+        
+        // Pause Button is separate (always visible during game)
+        if (pauseBtn != null)
+        {
+             Button btn = pauseBtn.GetComponent<Button>();
+             if (btn == null) btn = pauseBtn.AddComponent<Button>(); // Ensure it has a button component
+             
+             btn.onClick.RemoveAllListeners();
+             btn.onClick.AddListener(() => GameManager.instance.PlayPause());
+             
+             // Also add hover effect to pause button
+             if (btn.gameObject.GetComponent<ButtonHoverEffect>() == null)
+                 btn.gameObject.AddComponent<ButtonHoverEffect>();
+        }
 
         // Ensure overlays are hidden at start (Fix for Black Screen)
         if (pausedBg != null) pausedBg.SetActive(false);
@@ -127,7 +157,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         
 
         EventManager.StartListening<bool>("gamePaused", (isPaused) => {
-            TogglePauseBtn();
+            TogglePauseBtn(isPaused);
         });
 
 
@@ -184,31 +214,47 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
     }
 #endif
 
+    private void SetupButton(GameObject btnObj, UnityEngine.Events.UnityAction action)
+    {
+        if (btnObj != null)
+        {
+            Button btn = btnObj.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(action);
+                
+                // Add Hover Effect
+                if (btnObj.GetComponent<ButtonHoverEffect>() == null)
+                {
+                    btnObj.AddComponent<ButtonHoverEffect>();
+                }
+            }
+        }
+    }
+
     private void FixPauseLayout()
     {
-        // Fix Paused BG layout: Ensure it covers the entire screen and has no rounded corners
-        if (pausedBg != null)
+        // Removed per user request
+    }
+
+    private void PositionButton(GameObject btnObj, float yOffset)
+    {
+        if (btnObj != null)
         {
-            RectTransform rt = pausedBg.GetComponent<RectTransform>();
+            RectTransform rt = btnObj.GetComponent<RectTransform>();
             if (rt != null)
             {
-                // Stretch to fill parent (Full Screen)
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
+                // Center Anchor
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0.5f);
                 
-                // Oversize it slightly to cover any potential edges/margins
-                rt.offsetMin = new Vector2(-50f, -50f);
-                rt.offsetMax = new Vector2(50f, 50f);
-            }
-
-            Image img = pausedBg.GetComponent<Image>();
-            if (img != null)
-            {
-                // Remove sprite to eliminate border radius/rounded corners
-                img.sprite = null; 
-                // Ensure it's a black semi-transparent overlay
-                img.color = new Color(0f, 0f, 0f, 0.4f);
+                // Position
+                rt.anchoredPosition = new Vector2(0f, yOffset);
+                
+                // Ensure reasonable size if it's super small (optional safety)
+                if (rt.sizeDelta.x < 100) rt.sizeDelta = new Vector2(200, 60);
             }
         }
     }
@@ -454,8 +500,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             {
                 rt.position = screenPos;
                 // AUTO-FIX: Increase width to prevent text wrapping/shrinking (User Request)
-                // Was likely 200, increasing to 400 to accommodate longer text like "÷100 BinÞú"
-                rt.sizeDelta = new Vector2(400, 100); 
+                // Was 400, increasing to 600 to accommodate longer text
+                rt.sizeDelta = new Vector2(600, 100);  
             }
         }
         
@@ -603,7 +649,12 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }
     }
 
-    private void TogglePauseBtn()
+    private void CreateMissingButtons()
+    {
+        // Removed per user request
+    }
+
+    private void TogglePauseBtn(bool isPaused)
     {
         if( pauseBtn == null || resumeBtn == null)
         {
@@ -611,19 +662,33 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             return;
         }
 
-        if( pauseBtn.activeSelf == true)
+        if(isPaused)
         {
             pauseBtn.SetActive(false);
             resumeBtn.SetActive(true);
-            pausedBg.SetActive(true);
-            FixPauseLayout();
-            resumeBtn.transform.SetAsLastSibling();
+            if(restartBtn != null) restartBtn.SetActive(true);
+            if(menuBtn != null) menuBtn.SetActive(true);
+            if(pausedBg != null) pausedBg.SetActive(true);
         }else
         {
             pauseBtn.SetActive(true);
             resumeBtn.SetActive(false);
-            pausedBg.SetActive(false);
+            if(restartBtn != null) restartBtn.SetActive(false);
+            if(menuBtn != null) menuBtn.SetActive(false);
+            if(pausedBg != null) pausedBg.SetActive(false);
         }
+    }
+
+    public void RestartGame()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void GoToMainMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("MainMenu");
     }
 
     private void ShowScore(int score = 0)

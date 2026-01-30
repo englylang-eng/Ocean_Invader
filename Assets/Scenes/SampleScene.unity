@@ -1073,11 +1073,12 @@ MonoBehaviour:
   resumeBtn: {fileID: 773797392}
   pausedBg: {fileID: 350203011}
   ScoreScreen: {fileID: 0}
-  victoryMessage: "GbGrsaTr G\xF1k)anrYcCIvitk\xF1\xFAgvK\xC1enH"
+  victoryMessage: sUmGbGrsaTr
   defeatMessage: "B\xFCayamm\xFEgeTot"
-  messageFont: {fileID: 0}
+  messageFont: {fileID: 12800000, guid: 5ce6b23634ffd4b488437333b3deb3ca, type: 3}
   messageFontTmp: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   ScoreText: {fileID: 10042791}
+  ScoreTextTmp: {fileID: 0}
   floatingTextPrefab: {fileID: 7447932585375443293, guid: a22353b65bbe5514b9a720e3b79c5e20,
     type: 3}
   poolSize: 20
@@ -1758,6 +1759,7 @@ MonoBehaviour:
   sharkWarningSound: {fileID: 8300000, guid: b43f9803f9c5df3479d89fccff0cafa8, type: 3}
   sharkAttackSound: {fileID: 8300000, guid: be73fcbfce4137045891834d16ee1628, type: 3}
   sharkSwimSound: {fileID: 8300000, guid: 126fdadfde0688f46b75a6794b4e4509, type: 3}
+  sharkAnimController: {fileID: 9100000, guid: 4577fd3774e6ec743986859922c5cf18, type: 2}
 --- !u!4 &833026716
 Transform:
   m_ObjectHideFlags: 0

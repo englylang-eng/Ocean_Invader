@@ -223,7 +223,10 @@ public class GameManager : MonoBehaviour
         if (kb != null)
         {
             if (kb.escapeKey.wasPressedThisFrame)
+            {
+                Debug.Log("GameManager: ESC Pressed");
                 PlayPause();
+            }
         }
     }
 

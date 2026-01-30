@@ -370,7 +370,7 @@ public class Fish : MonoBehaviour
             rb = gameObject.AddComponent<Rigidbody2D>();
             // NOTE: We use Dynamic (isKinematic = false) because FishAI uses 'linearVelocity' to move.
             // If we set isKinematic = true, the fish will not move!
-            rb.isKinematic = false; 
+            rb.bodyType = RigidbodyType2D.Dynamic;
             rb.gravityScale = 0f;
             rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;

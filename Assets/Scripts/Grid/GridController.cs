@@ -23,9 +23,9 @@ public class GridController : MonoBehaviour
 
     [Header("Arena Spawning")]
     [SerializeField]
-    private int maxFishCount = 20; // Increased limit to allow more fish density
+    private int maxFishCount = 30; // Increased limit to allow more fish density (User Request: "spawn abit more fishes")
     [SerializeField]
-    private float spawnInterval = 1.5f; // Spawning happens faster (was 5f -> 2f) to replenish eatable fish
+    private float spawnInterval = 1.0f; // Spawning happens faster (was 1.5f -> 1.0f)
     private float spawnTimer = 0f;
 
     [Header("Hazard Settings")]
@@ -36,7 +36,7 @@ public class GridController : MonoBehaviour
     [SerializeField]
     private Sprite hazardSpriteVariant; // Second Variant
     [SerializeField]
-    private float hazardChance = 0.20f; // 20% chance
+    private float hazardChance = 0.15f; // Reduced from 0.20f (User Request: "reduce spawn chance")
     [SerializeField]
     private float hazardScale = 0.8f; // Scale modifier for sprite-spawned hazard
 
@@ -60,13 +60,17 @@ public class GridController : MonoBehaviour
     [SerializeField]
     private Sprite warningIconSprite;
     [SerializeField]
-    private float sharkChance = 0.05f; // 5% chance per spawn tick (Rare but deadly)
+    private float sharkChance = 0.03f; // Reduced from 0.05f (User Request: "shark spawn too often reduce it abit")
     [SerializeField]
     private AudioClip sharkWarningSound;
     [SerializeField]
     private AudioClip sharkAttackSound;
     [SerializeField]
     private AudioClip sharkSwimSound; // New Swim Sound
+    
+    [Header("Shark Animation")]
+    [SerializeField]
+    private RuntimeAnimatorController sharkAnimController; // Assign 'Fish.controller' here
     
     // Track active shark
     private GameObject activeShark;
@@ -135,21 +139,26 @@ public class GridController : MonoBehaviour
             // Allowed to spawn even if Fish count is maxed out
             // User Request: "More frequent both of it" -> Boosted chances
             // User Request: "increase the chanes of the hazrd hook more"
-            float effectiveHazardChance = Mathf.Max(hazardChance, 0.5f); // Increased from 0.4f
             
-            // Further boost for low levels since they don't have sharks
-            if (GameManager.PlayerLevel <= 2) 
+            // User Request: "start spawning the fishserman hazard only when player reaches level 2"
+            if (GameManager.PlayerLevel >= 2)
             {
-                effectiveHazardChance = 0.7f; 
-            }
+                float effectiveHazardChance = Mathf.Max(hazardChance, 0.35f); // Reduced max from 0.5f
+                
+                // Further boost for low levels since they don't have sharks
+                if (GameManager.PlayerLevel <= 2) 
+                {
+                    effectiveHazardChance = 0.5f; // Reduced from 0.7f
+                }
 
-            // Clean up nulls
-            activeHazards.RemoveAll(h => h == null);
+                // Clean up nulls
+                activeHazards.RemoveAll(h => h == null);
 
-            if (activeHazards.Count == 0 && !isSpawningHazards && Random.value < effectiveHazardChance)
-            {
-                StartCoroutine(SpawnHazardsRoutine());
-                return; 
+                if (activeHazards.Count == 0 && !isSpawningHazards && Random.value < effectiveHazardChance)
+                {
+                    StartCoroutine(SpawnHazardsRoutine());
+                    return; 
+                }
             }
 
             // 1.5 Shark Spawn Check (Priority over Fish, Independent of Fisherman)
@@ -159,11 +168,11 @@ public class GridController : MonoBehaviour
             if (GameManager.PlayerLevel > 2)
             {
                 // User Request: "Shark should appear more when user reaches level 4 5 6"
-                float effectiveSharkChance = Mathf.Max(sharkChance, 0.15f); // Boost base chance
+                float effectiveSharkChance = Mathf.Max(sharkChance, 0.10f); // Reduced boost base from 0.15f
                 
                 if (GameManager.PlayerLevel >= 4)
                 {
-                    effectiveSharkChance = 0.45f; // Much more frequent at high levels
+                    effectiveSharkChance = 0.30f; // Reduced from 0.45f (User Request: "reduce it abit")
                 }
 
                 if (activeShark == null && Random.value < effectiveSharkChance)
@@ -185,7 +194,8 @@ public class GridController : MonoBehaviour
                 // CULLING LOGIC:
                 // If the ocean is full, check if we have "Obsolete" fish (Level < PlayerLevel)
                 // that are taking up space. If so, remove them to make room for new, relevant fish.
-                if (CullObsoleteFish(playerLevel))
+                // Pass 'true' to force recycling of obsolete fish.
+                if (CullObsoleteFish(playerLevel, true))
                 {
                     // We culled a fish. It will be removed at end of frame.
                     // Return now, but keep spawnTimer high so we retry spawning immediately next frame.
@@ -266,13 +276,14 @@ public class GridController : MonoBehaviour
             {
                 // === EATABLE POOL (80% Total) ===
                 
-                // User Request: "Dont stop spawning lower level fishes entirely"
-                // Balanced Distribution:
-                // - 50% chance for Current Level (Primary Food)
-                // - 50% chance for Any Lower Level (Ambient/Easy Food)
-                // This results in roughly: 40% Current, 40% Lower, 20% Predator.
+                // User Request: "Spawn less and less lower level fish but keep spawning them"
+                // Dynamic Distribution:
+                // Base chance for Lower Level starts at 50% (Level 2) and drops to ~30% (Level 8+)
+                // This ensures we always have some lower level fish (popcorn) but focus shifts to current level.
+                // Adjusted min from 0.20f to 0.30f to prevent extinction.
+                float lowerLevelChance = Mathf.Clamp(0.55f - (playerLevel * 0.05f), 0.30f, 0.50f);
                 
-                if (playerLevel > 1 && Random.value < 0.5f)
+                if (playerLevel > 1 && Random.value < lowerLevelChance)
                 {
                      // Spawn any lower level (1 to PlayerLevel-1)
                      spawnLevel = Random.Range(1, playerLevel);
@@ -316,9 +327,15 @@ public class GridController : MonoBehaviour
                 }
 
                 // SCHOOLING LOGIC: Level 1, L01-00 (level 1 fish)
-                // User Request: "spawn less schooling fish spawn more alone fish"
-                // Reduced chance from 90% to 10% (so 90% chance to be alone)
-                if (spawnLevel == 1 && prefabToSpawn.name.Contains("level 1 fish") && Random.value < 0.1f)
+                // User Request: "For the entry level i want u to spawn more schooling fish. than the level 2"
+                float schoolChance = 0.1f; // Default low chance (10%) for Level 2+
+                
+                if (GameManager.PlayerLevel == 1)
+                {
+                    schoolChance = 0.6f; // High chance (60%) for Level 1
+                }
+
+                if (spawnLevel == 1 && prefabToSpawn.name.Contains("level 1 fish") && Random.value < schoolChance)
                 {
                     // Create School
                     GameObject schoolObj = new GameObject("FishSchool");
@@ -373,7 +390,7 @@ public class GridController : MonoBehaviour
 
     //==============================| Helpers |========================//
 
-    private bool CullObsoleteFish(int playerLevel)
+    private bool CullObsoleteFish(int playerLevel, bool forceRecycle = false)
     {
         if (Camera.main == null) return false;
 
@@ -404,8 +421,8 @@ public class GridController : MonoBehaviour
             }
 
             // Condition 1: Is Obsolete? (Lower level than player)
-            // We want to keep current level fish and higher level predators.
-            if (fish.Level < playerLevel)
+            // Only cull obsolete fish if we are FORCED to recycle (e.g. population full)
+            if (forceRecycle && fish.Level < playerLevel)
             {
                 // Condition 2: Is Off-Screen?
                 if (!viewBounds.Contains(fish.transform.position))
@@ -674,10 +691,22 @@ public class GridController : MonoBehaviour
                 sharkTemplate.transform.SetParent(transform);
                 sharkTemplate.SetActive(false);
                 
-                SpriteRenderer sr = sharkTemplate.AddComponent<SpriteRenderer>();
+                // Add Animator to Root (so it can control the Gfx child)
+                Animator anim = sharkTemplate.AddComponent<Animator>();
+                if (sharkAnimController != null)
+                {
+                    anim.runtimeAnimatorController = sharkAnimController;
+                }
+
+                // Create Graphics Child "Gfx" for animation compatibility
+                GameObject gfx = new GameObject("Gfx");
+                gfx.transform.SetParent(sharkTemplate.transform);
+                gfx.transform.localPosition = Vector3.zero;
+
+                SpriteRenderer sr = gfx.AddComponent<SpriteRenderer>();
                 if (sharkSprite != null) sr.sprite = sharkSprite;
                 
-                // Collider
+                // Collider on Root
                 BoxCollider2D col = sharkTemplate.AddComponent<BoxCollider2D>();
                 col.isTrigger = true;
                 if (sr.sprite != null) col.size = sr.sprite.bounds.size;
@@ -694,7 +723,7 @@ public class GridController : MonoBehaviour
             sharkObj.SetActive(true);
             
             // Apply Sprite (already default, but just in case we add variants later)
-             SpriteRenderer sharkSr = sharkObj.GetComponent<SpriteRenderer>();
+             SpriteRenderer sharkSr = sharkObj.GetComponentInChildren<SpriteRenderer>();
              if (sharkSr != null && sharkSprite != null) sharkSr.sprite = sharkSprite;
 
              // Note: Original code rotated capsule if no sprite. 

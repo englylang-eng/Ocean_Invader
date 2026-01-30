@@ -164,6 +164,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 6
+  verticalSpeedMultiplier: 1.75
   maxLevel: 6
   baseXpRequirement: 100
   levelXpIncreasePercentage: 0.5
@@ -194,6 +195,8 @@ MonoBehaviour:
   boostMultiplier: 1.6
   boostDuration: 0.6
   smoothTime: 0.15
+  tiltAngle: 20
+  tiltSpeed: 10
 --- !u!50 &8469209948450142913
 Rigidbody2D:
   serializedVersion: 5
@@ -325,7 +328,7 @@ PolygonCollider2D:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8469209948450142919}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_Density: 1
   m_Material: {fileID: 0}
