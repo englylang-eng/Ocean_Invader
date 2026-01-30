@@ -51,9 +51,9 @@ public class WebGLOptimizer : EditorWindow
 
     static void BuildForDocs()
     {
-        string buildPath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "docs");
+        string buildPath = "docs"; 
         
-        // Ensure the folder exists
+        // Ensure folder exists
         if (!Directory.Exists(buildPath))
         {
             Directory.CreateDirectory(buildPath);
@@ -70,7 +70,9 @@ public class WebGLOptimizer : EditorWindow
 
         BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
         buildPlayerOptions.scenes = EditorBuildSettingsScene.GetActiveSceneList(EditorBuildSettings.scenes);
-        buildPlayerOptions.locationPathName = buildPath;
+        // Build to docs/index.html so that Unity names the files "index" (e.g. index.loader.js)
+        // instead of "docs" (docs.loader.js), ensuring compatibility with the template.
+        buildPlayerOptions.locationPathName = Path.Combine(buildPath, "index.html");
         buildPlayerOptions.target = BuildTarget.WebGL;
         buildPlayerOptions.options = BuildOptions.None;
 
