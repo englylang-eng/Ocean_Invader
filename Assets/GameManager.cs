@@ -198,7 +198,15 @@ public class GameManager : MonoBehaviour
 
         EventManager.StartListening("playerDeath", PlayerDeathSequence);
         
+        // FORCE AUDIO CHECK ON START (Mobile/Web)
+        AudioListener.pause = false;
+        AudioListener.volume = 1f;
+
+        // FORCE MOUSE SIMULATION FOR TOUCH (Fixes UI buttons on Mobile)
+        Input.simulateMouseWithTouches = true;
     }
+
+    private bool isOrientationPaused = false;
 
     private void Update()
     {
@@ -214,6 +222,28 @@ public class GameManager : MonoBehaviour
             {
                 if (audioSource != null && !audioSource.isPlaying) audioSource.Play();
                 if (ambientSource != null && !ambientSource.isPlaying) ambientSource.Play();
+            }
+        }
+
+        // --- MOBILE ROTATION CHECK ---
+        // Pause if Portrait, Resume if Landscape (and was paused by rotation)
+        if (Application.isMobilePlatform || Application.isEditor) // Testable in Editor too
+        {
+            if (Screen.height > Screen.width) // Portrait
+            {
+                if (!isPaused)
+                {
+                    PlayPause();
+                    isOrientationPaused = true;
+                }
+            }
+            else // Landscape
+            {
+                if (isPaused && isOrientationPaused)
+                {
+                    PlayPause();
+                    isOrientationPaused = false;
+                }
             }
         }
 

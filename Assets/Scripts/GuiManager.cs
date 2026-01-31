@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 using TMPro;
 using Rhinotap.Toolkit;
 
@@ -92,6 +93,15 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
              btn.onClick.RemoveAllListeners();
              btn.onClick.AddListener(() => GameManager.instance.PlayPause());
              
+             // MOBILE FIX: Add EventTrigger for better touch response
+             EventTrigger trigger = btn.gameObject.GetComponent<EventTrigger>();
+             if (trigger == null) trigger = btn.gameObject.AddComponent<EventTrigger>();
+             
+             EventTrigger.Entry entry = new EventTrigger.Entry();
+             entry.eventID = EventTriggerType.PointerClick; // More reliable than Button.onClick on some devices
+             entry.callback.AddListener((data) => { GameManager.instance.PlayPause(); });
+             trigger.triggers.Add(entry);
+
              // Also add hover effect to pause button
              if (btn.gameObject.GetComponent<ButtonHoverEffect>() == null)
                  btn.gameObject.AddComponent<ButtonHoverEffect>();
@@ -223,6 +233,18 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             {
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(action);
+                
+                // MOBILE FIX: Add EventTrigger for better touch response
+                EventTrigger trigger = btnObj.GetComponent<EventTrigger>();
+                if (trigger == null) trigger = btnObj.AddComponent<EventTrigger>();
+                
+                // Clear existing triggers to prevent duplicates
+                trigger.triggers.Clear();
+
+                EventTrigger.Entry entry = new EventTrigger.Entry();
+                entry.eventID = EventTriggerType.PointerClick;
+                entry.callback.AddListener((data) => { action.Invoke(); });
+                trigger.triggers.Add(entry);
                 
                 // Add Hover Effect
                 if (btnObj.GetComponent<ButtonHoverEffect>() == null)
