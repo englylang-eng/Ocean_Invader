@@ -127,7 +127,7 @@ public class GameManager : MonoBehaviour
         EventManager.Trigger<bool>("gamePaused", isPaused);
 
         // Toggle cursor visibility: Show when paused, Hide when playing
-        Cursor.visible = true; // Always visible per user request
+        Cursor.visible = isPaused;
         
         if( isPaused)
         {
@@ -223,10 +223,7 @@ public class GameManager : MonoBehaviour
         if (kb != null)
         {
             if (kb.escapeKey.wasPressedThisFrame)
-            {
-                Debug.Log("GameManager: ESC Pressed");
                 PlayPause();
-            }
         }
     }
 
