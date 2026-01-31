@@ -394,11 +394,13 @@ public class SharkHazard : MonoBehaviour
             swimSource.Play();
         }
 
-        // Play Attack Sound (Now that it's here!)
+        // Play Attack Sound (Removed per user request)
+        /*
         if (audioSource != null && attackSound != null)
         {
             audioSource.PlayOneShot(attackSound);
         }
+        */
     }
 
     private void StartCharging()

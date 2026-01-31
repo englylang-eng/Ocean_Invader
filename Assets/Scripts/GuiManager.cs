@@ -79,6 +79,9 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         uiAudioSource.playOnAwake = false;
         uiAudioSource.ignoreListenerPause = true; // Ensure UI sounds play when game is paused!
 
+        // Fix: Ensure AudioListener volume is set (sometimes starts at 0 on mobile until interaction)
+        // We will handle the actual "Unmute" in Update() on first tap.
+
         // Simple fallback for ACTIVE objects only (Cheap, fixes dark screen if unassigned)
         if (pausedBg == null) pausedBg = GameObject.Find("PausedBG");
         if (ScoreScreen == null) ScoreScreen = GameObject.Find("ScoreScreen");
@@ -128,35 +131,14 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         SetupButton(restartBtn, RestartGame);
         SetupButton(menuBtn, GoToMainMenu);
         
-        // Pause Button is separate (always visible during game)
+        // Pause Button and Fullscreen Button are handled by SetupTopRightControls() later
+        // We defer creation to ensure everything else is ready
+        /*
         if (pauseBtn != null)
         {
-             Button btn = pauseBtn.GetComponent<Button>();
-             if (btn == null) btn = pauseBtn.AddComponent<Button>(); // Ensure it has a button component
-             
-             btn.onClick.RemoveAllListeners();
-              btn.onClick.AddListener(() => {
-                  PlayButtonSound(); // Sound first
-                  // Debug.Log("Pause Button Clicked!");
-                  GameManager.instance.PlayPause();
-              });
-             
-             // Also add hover effect to pause button
-             if (btn.gameObject.GetComponent<ButtonHoverEffect>() == null)
-                 btn.gameObject.AddComponent<ButtonHoverEffect>();
-                 
-             // Fix: Ensure Image exists and is raycast target (Required for clicks)
-             Image img = btn.GetComponent<Image>();
-             if (img == null) 
-             {
-                 img = btn.gameObject.AddComponent<Image>();
-                 img.color = new Color(1, 1, 1, 0); // Invisible if added just for clicks
-             }
-             img.raycastTarget = true;
-             
-             // Fix: Bring to front to ensure not blocked
-             btn.transform.SetAsLastSibling();
+             // Legacy setup removed
         }
+        */
 
         // Ensure overlays are hidden at start (Fix for Black Screen)
         if (pausedBg != null) pausedBg.SetActive(false);
@@ -264,6 +246,161 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
         // Final Layout Fix: Run this LAST to ensure all buttons are created and ready
         FixPauseLayout();
+        
+        // Fix: Ensure Pause Button and Fullscreen Button are created and positioned correctly
+        SetupTopRightControls();
+
+        // FORCE AUDIO ON START (User Request)
+        // Attempt to brute-force audio enabling immediately
+        ForceEnableAudio();
+    }
+
+    private void ForceEnableAudio()
+    {
+         // 1. Play silent sound to unlock audio engine
+         if (uiAudioSource != null)
+         {
+             uiAudioSource.PlayOneShot(uiAudioSource.clip); // Plays null or whatever, just triggers context
+         }
+         
+         // 2. Ensure AudioListener is active/unpaused
+         AudioListener.pause = false; 
+         
+         // 3. Force volume update (sometimes starts muted)
+         float savedVolume = PlayerPrefs.GetFloat("MasterVolume", 1.0f);
+         AudioListener.volume = savedVolume;
+    }
+
+    [Header("Top Right Controls")]
+    public Sprite fullscreenSprite;
+    public Sprite pauseSprite;
+    private GameObject fullscreenBtn; // Reference to control visibility
+
+    private void SetupTopRightControls()
+    {
+        // 1. Get Reference to Main Canvas (Parent of Controls)
+        Canvas mainCanvas = null;
+        if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        
+        if (mainCanvas == null) return; 
+
+        // 2. Handle Pause Button
+        Sprite existingPauseSprite = null;
+        if (pauseBtn != null)
+        {
+            Image img = pauseBtn.GetComponent<Image>();
+            if (img != null) existingPauseSprite = img.sprite;
+            
+            // Destroy existing button to replace with our clean programmatic one
+            Destroy(pauseBtn);
+        }
+        
+        // Use field if assigned, otherwise fallback to what we found
+        // User request: Prioritize "pause_icon" from Resources
+        Sprite finalPauseSprite = Resources.Load<Sprite>("pause_icon");
+        if (finalPauseSprite == null) finalPauseSprite = pauseSprite;
+        if (finalPauseSprite == null) finalPauseSprite = existingPauseSprite;
+        
+        // Create Pause Button (Right-most)
+        // User request: Same size as Fullscreen (40x40)
+        // Adjusted padding to match header (-50 from right), aligned Y (-30)
+        pauseBtn = CreateControlButton("PauseButton", finalPauseSprite, new Vector2(-50, -30), new Vector2(40, 40), () => {
+             PlayButtonSound();
+             GameManager.instance.PlayPause();
+        });
+        
+        if (pauseBtn != null)
+        {
+             pauseBtn.transform.SetParent(mainCanvas.transform, false);
+             pauseBtn.transform.SetAsLastSibling();
+        }
+
+        // 3. Handle Fullscreen Button (Left of Pause Button)
+        if (fullscreenSprite == null) fullscreenSprite = Resources.Load<Sprite>("fullscreen_icon");
+        
+        // Position: -50 (Pause) - 40 (Pause Size) - 10 (Gap) = -100
+        // Y aligned with Pause (-30)
+        fullscreenBtn = CreateControlButton("FullscreenButton", fullscreenSprite, new Vector2(-100, -30), new Vector2(40, 40), () => GoFullScreen());
+        if (fullscreenBtn != null)
+        {
+             fullscreenBtn.transform.SetParent(mainCanvas.transform, false);
+             fullscreenBtn.transform.SetAsLastSibling();
+        }
+    }
+
+    private GameObject CreateControlButton(string name, Sprite sprite, Vector2 anchoredPos, Vector2 size, UnityEngine.Events.UnityAction action)
+    {
+        GameObject btnObj = new GameObject(name);
+        
+        // RectTransform
+        RectTransform rt = btnObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(1, 1); // Top-Right
+        rt.anchorMax = new Vector2(1, 1);
+        rt.pivot = new Vector2(1, 1);
+        rt.sizeDelta = size;
+        rt.anchoredPosition = anchoredPos;
+        rt.localScale = Vector3.one;
+        
+        // Image
+        Image img = btnObj.AddComponent<Image>();
+        if (sprite != null) img.sprite = sprite;
+        img.color = Color.white;
+        img.raycastTarget = true;
+        
+        // Button
+        Button btn = btnObj.AddComponent<Button>();
+        btn.onClick.AddListener(() => PlayButtonSound());
+        btn.onClick.AddListener(action);
+        
+        // Layout Element (Ignore Layout)
+        LayoutElement le = btnObj.AddComponent<LayoutElement>();
+        le.ignoreLayout = true;
+
+        // Ensure Canvas/Raycaster for Mobile Tap Reliability
+        Canvas c = btnObj.AddComponent<Canvas>();
+        c.overrideSorting = true;
+        c.sortingOrder = 2001; // Max Priority
+        
+        btnObj.AddComponent<GraphicRaycaster>();
+        
+        // Fix: Add transparent "Hit Area" padding for easier mobile tapping
+        // 40x40 is small for fingers. We add a child that is 60x60 but transparent.
+        GameObject hitArea = new GameObject("HitArea");
+        hitArea.transform.SetParent(btnObj.transform, false);
+        
+        RectTransform rtHit = hitArea.AddComponent<RectTransform>();
+        rtHit.anchorMin = new Vector2(0.5f, 0.5f);
+        rtHit.anchorMax = new Vector2(0.5f, 0.5f);
+        rtHit.sizeDelta = new Vector2(60, 60); // 150% padding
+        
+        Image imgHit = hitArea.AddComponent<Image>();
+        imgHit.color = new Color(0, 0, 0, 0); // Transparent
+        imgHit.raycastTarget = true;
+        
+        // Forward click to parent button
+        Button btnHit = hitArea.AddComponent<Button>();
+        btnHit.onClick.AddListener(() => btn.onClick.Invoke());
+
+        return btnObj;
+    }
+
+    public void GoFullScreen() 
+    { 
+        // Toggle Fullscreen Mode
+        // Works on desktop and mobile browsers (Chrome, Firefox, Safari)
+        // If already fullscreen, this will exit (showing browser bars again).
+        // If not fullscreen, this will enter (hiding browser bars).
+        Screen.fullScreen = !Screen.fullScreen;
+    }
+
+    private void Update()
+    {
+        // Smooth Fill XP Bar
+        if (XpBar != null)
+        {
+            XpBar.fillAmount = Mathf.Lerp(XpBar.fillAmount, targetXpFill, Time.deltaTime * 5f);
+        }
     }
 
 #if UNITY_EDITOR
@@ -313,7 +450,13 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             Canvas canvas = pausedBg.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 2000; // Above everything
-            pausedBg.AddComponent<CanvasScaler>(); // Default scaler
+            
+            // Fix: Use ScaleWithScreenSize for Mobile compatibility
+            CanvasScaler scaler = pausedBg.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f; // Balance between width/height
+            
             pausedBg.AddComponent<GraphicRaycaster>();
             
             // Add semi-transparent background image
@@ -424,21 +567,25 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         // Main Menu Style: White with 50% opacity
         Color buttonColor = new Color(1f, 1f, 1f, 0.5f); 
 
-        // Text Size Calculation: Main Menu is 36px for 180px button (Ratio 0.2)
-        int fontSize = Mathf.RoundToInt(30f * scaleFactor);
+        // Text Size Calculation: Increased from 50 to 60 per user request
+        int fontSize = Mathf.RoundToInt(60f * scaleFactor);
 
         // 3. Map Buttons to Positions (Scaled & Centered)
         // Centering Logic:
         // Resume: Top (100)
         // Menu/Restart: Bottom (-100)
 
-        CustomizeButton(resumeBtn, "Resume", buttonColor, buttonSize, fontSize);
+        // Update Text to Khmer (User Request)
+        // Resume -> "bnþ"
+        CustomizeButton(resumeBtn, "bnþ", buttonColor, buttonSize, fontSize);
         PositionButton(resumeBtn, new Vector2(0, 100f * scaleFactor));
 
-        CustomizeButton(menuBtn, "Menu", buttonColor, buttonSize, fontSize);
+        // Menu -> "muWnuy"
+        CustomizeButton(menuBtn, "muWnuy", buttonColor, buttonSize, fontSize);
         PositionButton(menuBtn, new Vector2(-150f * scaleFactor, -100f * scaleFactor));
 
-        CustomizeButton(restartBtn, "Restart", buttonColor, buttonSize, fontSize);
+        // Restart -> "safµI"
+        CustomizeButton(restartBtn, "safµI", buttonColor, buttonSize, fontSize);
         PositionButton(restartBtn, new Vector2(150f * scaleFactor, -100f * scaleFactor));
     }
 
@@ -483,8 +630,11 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             txt.fontStyle = FontStyle.Bold; // Main Menu is Bold
             txt.alignment = TextAnchor.MiddleCenter;
             
-            // Fix: Use LegacyRuntime.ttf (Standard Unity Font) instead of Arial.ttf which is deprecated/removed
-            Font standardFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // Fix: Use Limon Font for Khmer Text (User Request)
+            Font standardFont = Resources.Load<Font>("lmns1");
+            
+            // Fallback: LegacyRuntime or Arial
+            if (standardFont == null) standardFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (standardFont == null) standardFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
             
             // Fallback: Find ANY font if specific ones fail
@@ -648,9 +798,14 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     private void InitializeFloatingTextPool()
     {
+        // Fix: Reparent to Main Canvas to avoid layout distortion/squashing from HUD panels
         Transform parent = null;
-        if (XpBar != null) parent = XpBar.transform.parent;
-        else if (ScoreText != null) parent = ScoreText.transform.parent;
+        Canvas mainCanvas = null;
+        if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        
+        if (mainCanvas != null) parent = mainCanvas.transform;
+        else if (XpBar != null) parent = XpBar.transform.parent;
         else parent = transform;
 
         GameObject template = (ScoreText != null) ? ScoreText.gameObject : null;
@@ -665,21 +820,20 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             obj.name = "FloatingTextPool_" + i;
             obj.SetActive(false);
             
-            // Add Outline for visibility (Feeding Frenzy style) - Removed per request for cleaner/smaller look
-            /*
-            if (obj.GetComponent<Outline>() == null)
-            {
-                 Outline outline = obj.AddComponent<Outline>();
-                 outline.effectColor = Color.black;
-                 outline.effectDistance = new Vector2(2, -2);
-            }
-            */
+            // Fix: Ensure Scale is 1,1,1 (Square)
+            obj.transform.localScale = Vector3.one;
 
             // Ensure Font is applied (Legacy Text)
             if (messageFont != null)
             {
                 Text t = obj.GetComponent<Text>();
-                if (t != null) t.font = messageFont;
+                if (t != null) 
+                {
+                    t.font = messageFont;
+                    // Fix: Ensure overflow settings prevent squashing
+                    t.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    t.verticalOverflow = VerticalWrapMode.Overflow;
+                }
             }
 
             // Ensure Font is applied (TMP)
@@ -737,7 +891,12 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
         // If pool is empty, fallback
         Transform parent = null;
-        if (XpBar != null) parent = XpBar.transform.parent;
+        Canvas mainCanvas = null;
+        if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        
+        if (mainCanvas != null) parent = mainCanvas.transform;
+        else if (XpBar != null) parent = XpBar.transform.parent;
         else if (ScoreText != null) parent = ScoreText.transform.parent;
         else parent = transform;
         
@@ -808,7 +967,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             txt.color = color;
             txt.alignment = TextAnchor.MiddleCenter;
             // High quality trick: Large font size, scaled down object
-            txt.fontSize = 48; // Was 24
+            txt.fontSize = 56; // Increased from 48 to 56
             txt.fontStyle = FontStyle.Bold; 
             
             // Remove Shadow if it exists
@@ -821,7 +980,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             tmp.text = text;
             tmp.color = color;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 48; // Was 24
+            tmp.fontSize = 56; // Increased from 48 to 56
             tmp.fontStyle = FontStyles.Bold;
         }
 
@@ -996,6 +1155,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         if(isPaused)
         {
             pauseBtn.SetActive(false);
+            if (fullscreenBtn != null) fullscreenBtn.SetActive(false); // Hide Fullscreen Button
+            
             resumeBtn.SetActive(true);
             if(restartBtn != null) restartBtn.SetActive(true);
             if(menuBtn != null) menuBtn.SetActive(true);
@@ -1016,6 +1177,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }else
         {
             pauseBtn.SetActive(true);
+            if (fullscreenBtn != null) fullscreenBtn.SetActive(true); // Show Fullscreen Button
+            
             resumeBtn.SetActive(false);
             if(restartBtn != null) restartBtn.SetActive(false);
             if(menuBtn != null) menuBtn.SetActive(false);
@@ -1093,15 +1256,6 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         ScoreScreen.SetActive(false);
         ScoreText.text = "0";
         if (messageText != null) messageText.gameObject.SetActive(false);
-    }
-
-    void Update()
-    {
-        // Smooth XP Logic
-        if (XpBar != null && Mathf.Abs(XpBar.fillAmount - targetXpFill) > 0.001f)
-        {
-            XpBar.fillAmount = Mathf.Lerp(XpBar.fillAmount, targetXpFill, Time.deltaTime * 5f);
-        }
     }
 
     // Helper to find UI objects even if inactive

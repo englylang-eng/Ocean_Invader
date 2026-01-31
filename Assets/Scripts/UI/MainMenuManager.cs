@@ -28,36 +28,8 @@ public class MainMenuManager : MonoBehaviour
 
     private void Start()
     {
-        // Auto-Link References if missing (Robustness)
-        if (mainPanel == null) mainPanel = GameObject.Find("MainPanel");
-        if (settingsPanel == null) settingsPanel = GameObject.Find("SettingsPanel");
-        if (volumeSlider == null) volumeSlider = FindFirstObjectByType<Slider>(); // Simplification
-        
-        // Find Buttons if missing (Robust Search)
-        if (playButton == null && mainPanel != null) 
-        {
-            Transform t = mainPanel.transform.Find("PlayButton");
-            if (t == null) t = mainPanel.transform.Find("StartButton");
-            if (t == null) t = mainPanel.transform.Find("Play");
-            if (t != null) playButton = t.GetComponent<Button>();
-        }
-        
-        if (settingsButton == null && mainPanel != null) 
-        {
-            Transform t = mainPanel.transform.Find("SettingsButton");
-            if (t == null) t = mainPanel.transform.Find("OptionsButton");
-            if (t == null) t = mainPanel.transform.Find("ConfigButton");
-            if (t != null) settingsButton = t.GetComponent<Button>();
-        }
-        
-        if (backButton == null && settingsPanel != null) backButton = settingsPanel.transform.Find("BackButton")?.GetComponent<Button>();
-        
-        if (quitButton == null && mainPanel != null) 
-        {
-            Transform t = mainPanel.transform.Find("QuitButton");
-            if (t == null) t = mainPanel.transform.Find("ExitButton");
-            if (t != null) quitButton = t.GetComponent<Button>();
-        }
+        // Find References
+        FindReferences();
 
         // Setup Audio Source for SFX
         sfxSource = gameObject.AddComponent<AudioSource>();
@@ -99,6 +71,89 @@ public class MainMenuManager : MonoBehaviour
 
         // Apply New Layout (Vertical Capsules)
         // RedesignMenuLayout();
+
+        // Update All Menu Buttons Text & Font (User Request)
+        UpdateMenuButtons();
+    }
+
+    private void OnValidate()
+    {
+        // Allow live updates in Editor
+        FindReferences();
+        UpdateMenuButtons();
+    }
+
+    private void FindReferences()
+    {
+        // Auto-Link References if missing (Robustness)
+        if (mainPanel == null) mainPanel = GameObject.Find("MainPanel");
+        if (settingsPanel == null) settingsPanel = GameObject.Find("SettingsPanel");
+        if (volumeSlider == null) volumeSlider = FindFirstObjectByType<Slider>(); // Simplification
+        
+        // Find Buttons if missing (Robust Search)
+        if (playButton == null && mainPanel != null) 
+        {
+            Transform t = mainPanel.transform.Find("PlayButton");
+            if (t == null) t = mainPanel.transform.Find("StartButton");
+            if (t == null) t = mainPanel.transform.Find("Play");
+            if (t != null) playButton = t.GetComponent<Button>();
+        }
+        
+        if (settingsButton == null && mainPanel != null) 
+        {
+            Transform t = mainPanel.transform.Find("SettingsButton");
+            if (t == null) t = mainPanel.transform.Find("OptionsButton");
+            if (t == null) t = mainPanel.transform.Find("ConfigButton");
+            if (t != null) settingsButton = t.GetComponent<Button>();
+        }
+        
+        if (backButton == null && settingsPanel != null) backButton = settingsPanel.transform.Find("BackButton")?.GetComponent<Button>();
+        
+        if (quitButton == null && mainPanel != null) 
+        {
+            Transform t = mainPanel.transform.Find("QuitButton");
+            if (t == null) t = mainPanel.transform.Find("ExitButton");
+            if (t != null) quitButton = t.GetComponent<Button>();
+        }
+    }
+
+    private void UpdateMenuButtons()
+    {
+        // Load Font from Resources (Moved from Audio/lmns1.ttf)
+        Font limonFont = Resources.Load<Font>("lmns1");
+        if (limonFont == null) return;
+
+        // 1. Play Button -> "elg"
+        UpdateButtonText(playButton, "elg", limonFont);
+
+        // 2. Settings Button -> "kMNt;"
+        UpdateButtonText(settingsButton, "kMNt;", limonFont);
+
+        // 3. Quit Button -> "ecj"
+        UpdateButtonText(quitButton, "ecj", limonFont);
+    }
+
+    private void UpdateButtonText(Button btn, string newText, Font font)
+    {
+        if (btn == null) return;
+
+        // Try Legacy Text
+        Text txt = btn.GetComponentInChildren<Text>();
+        if (txt != null)
+        {
+            txt.font = font;
+            txt.text = newText;
+            // Ensure size is good (readable) - Increased to 75 per user request
+            if (txt.fontSize < 60) txt.fontSize = 75;
+        }
+        
+        // Try TMP (If used)
+        TextMeshProUGUI tmp = btn.GetComponentInChildren<TextMeshProUGUI>();
+        if (tmp != null)
+        {
+            tmp.text = newText;
+            // TMP Font Asset handling would go here if we had a generated asset
+        }
     }
 
     private void RedesignMenuLayout()
