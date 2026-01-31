@@ -14,8 +14,6 @@ public class ObjectPoolManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            // Optional: Don't destroy on load if we want pools to persist across scenes
-            // DontDestroyOnLoad(gameObject); 
         }
         else
         {

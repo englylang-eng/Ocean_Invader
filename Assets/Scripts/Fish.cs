@@ -475,6 +475,7 @@ public class Fish : MonoBehaviour
             {
                 // I am bigger. I eat the smaller fish.
                 // We kill the other fish.
+                PlayEatEffect(); // Trigger eating particles
                 otherFish.Die();
 
                 // Optional: We could play an eat sound or effect here if we had references.

@@ -119,6 +119,25 @@ public class PlayerController : MonoBehaviour
     #endregion
 
     #region Mono Behaviour
+    
+    // User Request: "Hidden cursor during gameplay, visible in UI"
+    void OnEnable()
+    {
+        // Only hide if game is running (not paused)
+        if (GameManager.instance != null && !GameManager.Paused)
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Confined;
+        }
+        // If GameManager isn't ready yet, GameManager.Start will handle it or we update in Start
+    }
+
+    void OnDisable()
+    {
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -226,9 +245,9 @@ public class PlayerController : MonoBehaviour
             Debug.Log(gameObject.name + " is missing audio source component");
 
         // Hide mouse cursor for original-game feel
-        Cursor.visible = true; // Was false - Enabled per user request to allow clicking UI
+        Cursor.visible = false;
         // Fix: Confine cursor to window to prevent triggering browser UI/Leaving window
-        Cursor.lockState = CursorLockMode.None; // Was Confined - Set to None to ensure freedom
+        Cursor.lockState = CursorLockMode.Confined;
 
         // Initialize XP Bar
         currentXp = 0; // Explicitly reset XP

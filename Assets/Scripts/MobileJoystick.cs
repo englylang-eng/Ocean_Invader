@@ -65,8 +65,8 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
             if (background != null && Mathf.Abs(background.sizeDelta.x - 250) > 1)
             {
                 background.sizeDelta = new Vector2(250, 250);
-                // Fix: Move up to avoid safe area/home bar issues (was 150)
-                background.anchoredPosition = new Vector2(200, 250); 
+                // Fix: Move up to avoid safe area/home bar issues (was 250)
+                background.anchoredPosition = new Vector2(200, 320); 
                 
                 if (handle != null)
                 {
@@ -109,6 +109,16 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
     }
 
     public void OnPointerUp(PointerEventData eventData)
+    {
+        ResetJoystick();
+    }
+
+    private void OnDisable()
+    {
+        ResetJoystick();
+    }
+
+    private void ResetJoystick()
     {
         InputDirection = Vector2.zero;
         if (handle != null)

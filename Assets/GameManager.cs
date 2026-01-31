@@ -12,6 +12,9 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
+        // Reset TimeScale on Scene Load (Fixes stuck pause state after restart)
+        Time.timeScale = 1f;
+
         if (instance == null)
         {
             instance = this;
@@ -58,17 +61,6 @@ public class GameManager : MonoBehaviour
     //==============| STATIC API |=====================//
     public static bool Paused { get { return instance != null && instance.isPaused; } }
 
-    /// <summary>
-    /// Centralized scaling logic REMOVED.
-    /// User manages sizing manually via Prefabs/Inspector.
-    /// </summary>
-    public static float GetTargetScale(int level)
-    {
-        // This function is deprecated/unused for sizing logic now.
-        // Returning 1f as fallback if called erroneously.
-        return 1f;
-    }
-
     public static int PlayerLevel { 
         get
         {
@@ -93,6 +85,7 @@ public class GameManager : MonoBehaviour
     private AudioClip levelUpClip;
     [SerializeField]
     private AudioClip buttonSoundEffect; // Button sound (Pause/Resume)
+    public AudioClip ButtonSoundEffect => buttonSoundEffect; // Public Accessor for UI
     [SerializeField]
     private AudioClip stageClearClip;    // Stage Clear / Win
     [SerializeField]
@@ -118,16 +111,14 @@ public class GameManager : MonoBehaviour
 
     public  void PlayPause()
     {
-        // Play button sound
-        if (sfxSource != null && buttonSoundEffect != null)
-            sfxSource.PlayOneShot(buttonSoundEffect);
-
         isPaused = !isPaused;
 
         EventManager.Trigger<bool>("gamePaused", isPaused);
 
         // Toggle cursor visibility: Show when paused, Hide when playing
         Cursor.visible = isPaused;
+        // User Request: Confine cursor during gameplay, Release (None) when paused (UI)
+        Cursor.lockState = isPaused ? CursorLockMode.None : CursorLockMode.Confined;
         
         if( isPaused)
         {
@@ -178,8 +169,8 @@ public class GameManager : MonoBehaviour
         if (audioSource != null)
         {
             audioSource.loop = true;
-            audioSource.playOnAwake = false; // We control playback manually
-            audioSource.Play();
+            audioSource.playOnAwake = true; // Try to play immediately (Autoplay policy permitting)
+            if (!audioSource.isPlaying) audioSource.Play();
         }
 
         // Setup SFX Source
@@ -192,8 +183,8 @@ public class GameManager : MonoBehaviour
             ambientSource = gameObject.AddComponent<AudioSource>();
             ambientSource.clip = waterLoopClip;
             ambientSource.loop = true;
-            ambientSource.playOnAwake = false;
-            ambientSource.Play();
+            ambientSource.playOnAwake = true; // Try to play immediately
+            if (!ambientSource.isPlaying) ambientSource.Play();
         }
 
         EventManager.StartListening("playerDeath", PlayerDeathSequence);
@@ -215,8 +206,17 @@ public class GameManager : MonoBehaviour
         // If audio should be playing but isn't, retry on any input.
         if (!isPaused)
         {
-            bool inputDetected = (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame) ||
-                                 (Pointer.current != null && Pointer.current.press.wasPressedThisFrame);
+            bool inputDetected = false;
+
+            // Check New Input System
+            if (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame) inputDetected = true;
+            if (Pointer.current != null && Pointer.current.press.wasPressedThisFrame) inputDetected = true;
+
+            // Check Legacy Input / Mobile Touch (Fallback)
+            // Wrapped in try-catch in case "New Input System Only" is active, which causes Input class to throw errors.
+            try {
+                if (Input.touchCount > 0 || Input.GetMouseButtonDown(0) || Input.anyKeyDown) inputDetected = true;
+            } catch { }
 
             if (inputDetected)
             {
@@ -235,12 +235,14 @@ public class GameManager : MonoBehaviour
                 {
                     PlayPause();
                     isOrientationPaused = true;
+                    AudioListener.pause = true; // FORCE MUTE ALL (including SFX/UI) when warning is shown
                 }
             }
             else // Landscape
             {
                 if (isPaused && isOrientationPaused)
                 {
+                    AudioListener.pause = false; // UNMUTE
                     PlayPause();
                     isOrientationPaused = false;
                 }
@@ -253,7 +255,11 @@ public class GameManager : MonoBehaviour
         if (kb != null)
         {
             if (kb.escapeKey.wasPressedThisFrame)
+            {
+                if (sfxSource != null && buttonSoundEffect != null) 
+                    sfxSource.PlayOneShot(buttonSoundEffect);
                 PlayPause();
+            }
         }
     }
 

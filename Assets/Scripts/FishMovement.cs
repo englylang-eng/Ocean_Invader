@@ -171,9 +171,4 @@ public class FishMovement : MonoBehaviour
 
         return Vector2.zero;
     }
-
-    // void ApplyTailSway(float speed)
-    // {
-    //    ...
-    // }
 }

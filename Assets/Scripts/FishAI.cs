@@ -424,10 +424,4 @@ public class FishAI : MonoBehaviour
 
         return separationCount > 0 ? separation.normalized : Vector2.zero;
     }
-
-    // Removed: ApplyTailSway is now integrated into FixedUpdate
-    // void ApplyTailSway(float speed)
-    // {
-    //    ...
-    // }
 }

@@ -102,8 +102,6 @@ namespace Rhinotap.StateMachine
             // Randomly decide how many times to change direction inside the arena before leaving
             int wanderTimes = Random.Range(minWanderCount, maxWanderCount + 1);
             Controller.SetData<int>("targetWanderCount", wanderTimes);
-
-            //Debug.Log("Initialization Complete");
         }
 
 

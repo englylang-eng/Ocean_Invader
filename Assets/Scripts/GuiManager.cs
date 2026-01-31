@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using UnityEngine.EventSystems;
 using TMPro;
 using Rhinotap.Toolkit;
 
@@ -65,19 +64,64 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
     private Queue<GameObject> floatingTextPool = new Queue<GameObject>();
 
     private float targetXpFill = 0f;
+    
+    // UI Audio
+    private AudioSource uiAudioSource;
 
     // Start is called before the first frame update
     void Start()
     {
+        // 0. Critical: Ensure EventSystem exists (Required for UI clicks)
+        EnsureEventSystem();
+        
+        // Setup UI Audio
+        uiAudioSource = gameObject.AddComponent<AudioSource>();
+        uiAudioSource.playOnAwake = false;
+        uiAudioSource.ignoreListenerPause = true; // Ensure UI sounds play when game is paused!
+
         // Simple fallback for ACTIVE objects only (Cheap, fixes dark screen if unassigned)
         if (pausedBg == null) pausedBg = GameObject.Find("PausedBG");
         if (ScoreScreen == null) ScoreScreen = GameObject.Find("ScoreScreen");
 
         // Fallback for Buttons if not assigned
         if (pauseBtn == null) pauseBtn = FindUIObjectByName("PauseButton", "PauseBtn", "BtnPause", "Pause");
-        if (resumeBtn == null) resumeBtn = FindUIObjectByName("ResumeButton", "ResumeBtn", "BtnResume", "Resume");
-        if (restartBtn == null) restartBtn = FindUIObjectByName("RestartButton", "RestartBtn", "BtnRestart");
-        if (menuBtn == null) menuBtn = FindUIObjectByName("MenuButton", "MenuBtn", "BtnMenu", "MainMenuButton");
+        
+        // FORCE RECREATE PAUSE MENU BUTTONS (User Request)
+        // Destroy existing buttons to ensure fresh procedural generation with correct settings
+        if (resumeBtn != null) { Destroy(resumeBtn); resumeBtn = null; }
+        if (restartBtn != null) { Destroy(restartBtn); restartBtn = null; }
+        if (menuBtn != null) { Destroy(menuBtn); menuBtn = null; }
+
+        // Also clean up any lingering objects in the scene that might conflict (Active or Inactive)
+        // We only target children of PausedBG if it exists, to avoid destroying unrelated UI
+        if (pausedBg != null)
+        {
+            foreach (Transform child in pausedBg.transform)
+            {
+                if (child.name.Contains("Resume") || child.name.Contains("Restart") || child.name.Contains("Menu"))
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+        }
+        else 
+        {
+            // If PausedBG isn't assigned, try to find it first
+            pausedBg = GameObject.Find("PausedBG");
+            if (pausedBg != null)
+            {
+                foreach (Transform child in pausedBg.transform)
+                {
+                    if (child.name.Contains("Resume") || child.name.Contains("Restart") || child.name.Contains("Menu"))
+                    {
+                        Destroy(child.gameObject);
+                    }
+                }
+            }
+        }
+
+        // Ensure buttons exist (Restore if lost)
+        CreateMissingButtons();
 
         // Setup Buttons (Listeners + Hover Effects)
         SetupButton(resumeBtn, () => GameManager.instance.PlayPause()); // Resume just toggles pause
@@ -91,20 +135,27 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
              if (btn == null) btn = pauseBtn.AddComponent<Button>(); // Ensure it has a button component
              
              btn.onClick.RemoveAllListeners();
-             btn.onClick.AddListener(() => GameManager.instance.PlayPause());
+              btn.onClick.AddListener(() => {
+                  PlayButtonSound(); // Sound first
+                  // Debug.Log("Pause Button Clicked!");
+                  GameManager.instance.PlayPause();
+              });
              
-             // MOBILE FIX: Add EventTrigger for better touch response
-             EventTrigger trigger = btn.gameObject.GetComponent<EventTrigger>();
-             if (trigger == null) trigger = btn.gameObject.AddComponent<EventTrigger>();
-             
-             EventTrigger.Entry entry = new EventTrigger.Entry();
-             entry.eventID = EventTriggerType.PointerClick; // More reliable than Button.onClick on some devices
-             entry.callback.AddListener((data) => { GameManager.instance.PlayPause(); });
-             trigger.triggers.Add(entry);
-
              // Also add hover effect to pause button
              if (btn.gameObject.GetComponent<ButtonHoverEffect>() == null)
                  btn.gameObject.AddComponent<ButtonHoverEffect>();
+                 
+             // Fix: Ensure Image exists and is raycast target (Required for clicks)
+             Image img = btn.GetComponent<Image>();
+             if (img == null) 
+             {
+                 img = btn.gameObject.AddComponent<Image>();
+                 img.color = new Color(1, 1, 1, 0); // Invisible if added just for clicks
+             }
+             img.raycastTarget = true;
+             
+             // Fix: Bring to front to ensure not blocked
+             btn.transform.SetAsLastSibling();
         }
 
         // Ensure overlays are hidden at start (Fix for Black Screen)
@@ -180,7 +231,6 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         });
 
         // Ensure layout is fixed at start
-        FixPauseLayout();
         UpdateGrowthIcons(1); // Initial state
         
         // Ensure XP bar starts empty
@@ -211,6 +261,9 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
                 rootCanvas.sortingOrder = 2000; 
             }
         }
+
+        // Final Layout Fix: Run this LAST to ensure all buttons are created and ready
+        FixPauseLayout();
     }
 
 #if UNITY_EDITOR
@@ -226,157 +279,320 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     private void SetupButton(GameObject btnObj, UnityEngine.Events.UnityAction action)
     {
-        if (btnObj != null)
-        {
-            Button btn = btnObj.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(action);
-                
-                // MOBILE FIX: Add EventTrigger for better touch response
-                EventTrigger trigger = btnObj.GetComponent<EventTrigger>();
-                if (trigger == null) trigger = btnObj.AddComponent<EventTrigger>();
-                
-                // Clear existing triggers to prevent duplicates
-                trigger.triggers.Clear();
+        if (btnObj == null) return;
+        Button btn = btnObj.GetComponent<Button>();
+        if (btn == null) return;
 
-                EventTrigger.Entry entry = new EventTrigger.Entry();
-                entry.eventID = EventTriggerType.PointerClick;
-                entry.callback.AddListener((data) => { action.Invoke(); });
-                trigger.triggers.Add(entry);
-                
-                // Add Hover Effect
-                if (btnObj.GetComponent<ButtonHoverEffect>() == null)
-                {
-                    btnObj.AddComponent<ButtonHoverEffect>();
-                }
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => PlayButtonSound()); // Add standard click sound
+        btn.onClick.AddListener(action);
+
+        if (btnObj.GetComponent<ButtonHoverEffect>() == null)
+            btnObj.AddComponent<ButtonHoverEffect>();
+    }
+
+    public void PlayButtonSound()
+    {
+        if (GameManager.instance != null && GameManager.instance.ButtonSoundEffect != null)
+        {
+            if (uiAudioSource == null) 
+            {
+                 uiAudioSource = gameObject.AddComponent<AudioSource>();
+                 uiAudioSource.ignoreListenerPause = true;
             }
+            uiAudioSource.PlayOneShot(GameManager.instance.ButtonSoundEffect);
         }
+    }
+
+    private void CreateMissingButtons()
+    {
+        // 1. Ensure Background/Parent exists
+        if (pausedBg == null)
+        {
+            pausedBg = new GameObject("PausedBG");
+            Canvas canvas = pausedBg.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 2000; // Above everything
+            pausedBg.AddComponent<CanvasScaler>(); // Default scaler
+            pausedBg.AddComponent<GraphicRaycaster>();
+            
+            // Add semi-transparent background image
+            Image img = pausedBg.AddComponent<Image>();
+            img.color = new Color(0, 0, 0, 0.20f); // Darker background (User Request: 65%)
+        }
+        else
+        {
+             // Ensure existing background is also darkened
+             Image img = pausedBg.GetComponent<Image>();
+             if (img != null)
+             {
+                 img.color = new Color(0, 0, 0, 0.20f); // Darker background (User Request: 65%)
+             }
+             
+             // Ensure it has a Canvas for proper sorting (Overlay on top of everything)
+             Canvas c = pausedBg.GetComponent<Canvas>();
+             if (c == null) c = pausedBg.AddComponent<Canvas>();
+             c.overrideSorting = true;
+             c.sortingOrder = 2000;
+             
+             if (pausedBg.GetComponent<GraphicRaycaster>() == null) pausedBg.AddComponent<GraphicRaycaster>();
+        }
+
+        // Ensure the background fills the screen completely (User Request: "cover whole screen perfectly")
+        RectTransform rtBg = pausedBg.GetComponent<RectTransform>();
+        if (rtBg != null)
+        {
+            // Reset anchors to stretch
+            rtBg.anchorMin = Vector2.zero;
+            rtBg.anchorMax = Vector2.one;
+            rtBg.pivot = new Vector2(0.5f, 0.5f);
+            
+            // Reset offsets to extend slightly beyond screen (User Request: "bigger than current size abit")
+            rtBg.offsetMin = new Vector2(-10, -10); // Left/Bottom
+            rtBg.offsetMax = new Vector2(10, 10); // Right/Top
+            
+            rtBg.localScale = Vector3.one; // Ensure scale is 1
+        }
+
+        // 2. Create Buttons if missing
+        if (resumeBtn == null) resumeBtn = CreateButton("ResumeBtn", pausedBg.transform);
+        if (restartBtn == null) restartBtn = CreateButton("RestartBtn", pausedBg.transform);
+        if (menuBtn == null) menuBtn = CreateButton("MenuBtn", pausedBg.transform);
+        
+        // 3. FORCE ORDER: Ensure Buttons are strictly ON TOP of the background
+        // Unity UI draws children in order. Last child = Topmost.
+        if (resumeBtn != null) resumeBtn.transform.SetAsLastSibling();
+        if (restartBtn != null) restartBtn.transform.SetAsLastSibling();
+        if (menuBtn != null) menuBtn.transform.SetAsLastSibling();
+    }
+
+    private GameObject CreateButton(string name, Transform parent)
+    {
+        GameObject btnObj = new GameObject(name);
+        btnObj.transform.SetParent(parent, false);
+        
+        // Add Image
+        btnObj.AddComponent<Image>();
+        
+        // Add Button
+        Button btn = btnObj.AddComponent<Button>();
+        
+        // Add Text Child
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(btnObj.transform, false);
+        Text t = textObj.AddComponent<Text>();
+        t.alignment = TextAnchor.MiddleCenter;
+        
+        // Fill Parent
+        RectTransform rtText = textObj.GetComponent<RectTransform>();
+        rtText.anchorMin = Vector2.zero;
+        rtText.anchorMax = Vector2.one;
+        rtText.sizeDelta = Vector2.zero;
+        
+        return btnObj;
     }
 
     private void FixPauseLayout()
     {
-        // 1. Ensure Buttons Exist
-        if (resumeBtn == null || restartBtn == null || menuBtn == null) return;
+        // 1. Calculate Scaling Factor
+        // Main Menu Reference: 1920x1080
+        // Main Menu Button Size: 180x180 -> Reduced to 150x150 per request
+        // Ratio: 150 / 1080 = 0.1388f
+        
+        float scaleFactor = 1.0f;
+        Canvas canvas = pausedBg.GetComponent<Canvas>();
+        if (canvas == null) canvas = pausedBg.GetComponentInParent<Canvas>();
+        
+        if (canvas != null)
+        {
+            RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+            if (canvasRect != null)
+            {
+                // Dynamic Scale based on Height relative to 1080p reference
+                scaleFactor = canvasRect.rect.height / 1080f;
+            }
+        }
+        
+        // Ensure scale doesn't get too crazy (Clamp between 0.5x and 2.0x)
+        scaleFactor = Mathf.Clamp(scaleFactor, 0.5f, 2.0f);
 
-        // 2. Define Styles
-        Color btnColor = new Color(0.53f, 0.81f, 0.92f, 0.8f); // Sky Blue, slightly transparent
-        Vector2 btnSize = new Vector2(180, 180); // Circular Size
+        // 2. Define Style (Match Main Menu but Scaled)
+        // Reduced base size from 180 to 150 ("tiny bit smaller")
+        float baseSize = 150f;
+        Vector2 buttonSize = new Vector2(baseSize * scaleFactor, baseSize * scaleFactor);
+        
+        // Main Menu Style: White with 50% opacity
+        Color buttonColor = new Color(1f, 1f, 1f, 0.5f); 
 
-        // 3. Customize Buttons (Apply Style)
-        CustomizeButton(restartBtn, "Restart", btnColor, btnSize);
-        CustomizeButton(resumeBtn, "Resume", btnColor, btnSize);
-        CustomizeButton(menuBtn, "Main Menu", btnColor, btnSize);
+        // Text Size Calculation: Main Menu is 36px for 180px button (Ratio 0.2)
+        int fontSize = Mathf.RoundToInt(30f * scaleFactor);
 
-        // 4. Position Buttons (Triangle Layout)
-        // Restart (Top Center)
-        PositionButton(restartBtn, new Vector2(0, 50)); 
-        // Resume (Bottom Left)
-        PositionButton(resumeBtn, new Vector2(-150, -150));
-        // Main Menu (Bottom Right)
-        PositionButton(menuBtn, new Vector2(150, -150));
+        // 3. Map Buttons to Positions (Scaled & Centered)
+        // Centering Logic:
+        // Resume: Top (100)
+        // Menu/Restart: Bottom (-100)
 
-        // 5. Create "PAUSED" Title
-        CreatePauseTitle();
+        CustomizeButton(resumeBtn, "Resume", buttonColor, buttonSize, fontSize);
+        PositionButton(resumeBtn, new Vector2(0, 100f * scaleFactor));
+
+        CustomizeButton(menuBtn, "Menu", buttonColor, buttonSize, fontSize);
+        PositionButton(menuBtn, new Vector2(-150f * scaleFactor, -100f * scaleFactor));
+
+        CustomizeButton(restartBtn, "Restart", buttonColor, buttonSize, fontSize);
+        PositionButton(restartBtn, new Vector2(150f * scaleFactor, -100f * scaleFactor));
     }
 
-    private void CustomizeButton(GameObject btnObj, string labelText, Color color, Vector2 size)
+    private void CustomizeButton(GameObject btnObj, string label, Color color, Vector2 size, int fontSize = 24)
     {
         if (btnObj == null) return;
-
-        // Shape & Size
-        RectTransform rt = btnObj.GetComponent<RectTransform>();
-        if (rt != null)
-        {
-            rt.sizeDelta = size;
-        }
-
+        
+        // 1. Image Style
         Image img = btnObj.GetComponent<Image>();
         if (img != null)
         {
-            img.sprite = Resources.Load<Sprite>("Knob"); // Standard Unity Circle (if available) or Default
-            if (img.sprite == null) img.sprite = Resources.Load<Sprite>("UISprite"); // Fallback
+            // Force the Circle Sprite to ensure uniform shape (User request: "same circle shape")
+            // We create a new sprite if needed or if the current one isn't our procedural circle
+            if (img.sprite == null || img.sprite.name != "ProceduralCircle")
+            {
+                 img.sprite = CreateCircleSprite(256, 2);
+                 img.sprite.name = "ProceduralCircle";
+            }
             img.color = color;
+            img.type = Image.Type.Simple;
+            img.raycastTarget = true; // Ensure clickable!
         }
-
-        // Text
+        
+        // 2. Size & Anchors
+        RectTransform rt = btnObj.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0.5f, 0.5f); // Center
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = size;
+        }
+        
+        // 3. Text Style (Black, Bold, No Best Fit - Match Main Menu)
         Text txt = btnObj.GetComponentInChildren<Text>();
         if (txt != null)
         {
-            txt.text = labelText;
+            txt.text = label;
             txt.color = Color.black;
-            txt.fontStyle = FontStyle.Bold;
-            txt.resizeTextForBestFit = true;
-            txt.resizeTextMinSize = 10;
-            txt.resizeTextMaxSize = 40;
+            txt.resizeTextForBestFit = false; // Main Menu uses fixed size
+            txt.fontSize = fontSize;
+            txt.fontStyle = FontStyle.Bold; // Main Menu is Bold
+            txt.alignment = TextAnchor.MiddleCenter;
+            
+            // Fix: Use LegacyRuntime.ttf (Standard Unity Font) instead of Arial.ttf which is deprecated/removed
+            Font standardFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (standardFont == null) standardFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            
+            // Fallback: Find ANY font if specific ones fail
+            if (standardFont == null)
+            {
+                 Font[] fonts = Resources.FindObjectsOfTypeAll<Font>();
+                 foreach (Font f in fonts) {
+                     if (f != null && f.name.Length > 0) {
+                         standardFont = f;
+                         // Prefer Arial if found
+                         if (f.name.Contains("Arial")) break;
+                     }
+                 }
+            }
+
+            if (standardFont != null) 
+            {
+                txt.font = standardFont;
+            }
+            
+            // Ensure Text fills the button
+            RectTransform rtText = txt.GetComponent<RectTransform>();
+            if (rtText != null)
+            {
+                rtText.anchorMin = Vector2.zero;
+                rtText.anchorMax = Vector2.one;
+                rtText.sizeDelta = Vector2.zero;
+                rtText.anchoredPosition = Vector2.zero;
+            }
         }
         
+        // TMP Support
         TextMeshProUGUI tmp = btnObj.GetComponentInChildren<TextMeshProUGUI>();
         if (tmp != null)
         {
-            tmp.text = labelText;
+            tmp.text = label;
             tmp.color = Color.black;
+            tmp.enableAutoSizing = false;
+            tmp.fontSize = fontSize;
             tmp.fontStyle = FontStyles.Bold;
-            tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 10;
-            tmp.fontSizeMax = 40;
+            tmp.alignment = TextAlignmentOptions.Center;
+            
+            // Reset to default font asset for plain English
+            tmp.font = TMP_Settings.defaultFontAsset;
         }
     }
 
-    private void PositionButton(GameObject btnObj, Vector2 anchoredPos)
+    private void PositionButton(GameObject btnObj, Vector2 pos)
     {
         if (btnObj != null)
         {
             RectTransform rt = btnObj.GetComponent<RectTransform>();
             if (rt != null)
             {
-                // Center Anchor
-                rt.anchorMin = new Vector2(0.5f, 0.5f);
-                rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                
-                // Position
-                rt.anchoredPosition = anchoredPos;
+                rt.anchoredPosition = pos;
             }
         }
     }
 
-    private void CreatePauseTitle()
+    private Sprite CreateCircleSprite(int resolution, int antiAliasing)
     {
-        if (pausedBg == null) return;
+        Texture2D texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear; // Smooth scaling
 
-        // Check if title already exists
-        Transform existingTitle = pausedBg.transform.Find("PauseTitle");
-        if (existingTitle != null) return;
-
-        // Create Title
-        GameObject titleObj = new GameObject("PauseTitle");
-        titleObj.transform.SetParent(pausedBg.transform, false);
-
-        Text txt = titleObj.AddComponent<Text>();
-        txt.text = "PAUSED";
-        txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf"); // Default font
-        if (messageFont != null) txt.font = messageFont; // Use game font if available
+        Color[] colors = new Color[resolution * resolution];
+        float center = resolution / 2f;
+        float radius = resolution / 2f;
+        float rSquared = radius * radius;
         
-        txt.alignment = TextAnchor.MiddleCenter;
-        txt.color = Color.white;
-        txt.fontSize = 80;
-        txt.fontStyle = FontStyle.Bold;
+        // Anti-aliasing edge width (approx 2 pixels)
+        float aaWidth = 2f * antiAliasing; 
 
-        // Position (Top Center)
-        RectTransform rt = titleObj.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 1f); // Top Center
-        rt.anchorMax = new Vector2(0.5f, 1f);
-        rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0, -100); // Offset from top
-        rt.sizeDelta = new Vector2(600, 150);
+        for (int y = 0; y < resolution; y++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                float dx = x - center + 0.5f;
+                float dy = y - center + 0.5f;
+                float distSquared = dx * dx + dy * dy;
 
-        // Add Shadow/Outline for style
-        Outline outline = titleObj.AddComponent<Outline>();
-        outline.effectColor = new Color(0, 0, 0, 0.5f);
-        outline.effectDistance = new Vector2(2, -2);
+                if (distSquared <= rSquared - (radius * aaWidth))
+                {
+                    // Inner Circle (Full Alpha)
+                    colors[y * resolution + x] = Color.white;
+                }
+                else if (distSquared <= rSquared + (radius * aaWidth))
+                {
+                    // Edge (Anti-aliasing)
+                    float dist = Mathf.Sqrt(distSquared);
+                    float alpha = Mathf.InverseLerp(radius + aaWidth/2f, radius - aaWidth/2f, dist);
+                    colors[y * resolution + x] = new Color(1, 1, 1, alpha);
+                }
+                else
+                {
+                    // Outside (Transparent)
+                    colors[y * resolution + x] = Color.clear;
+                }
+            }
+        }
+
+        texture.SetPixels(colors);
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0, 0, resolution, resolution), new Vector2(0.5f, 0.5f));
     }
+
+
 
     public void SetXp(int currentXP, int maxXp, int currentLevel = 1, int maxLevels = 1)
     {
@@ -768,11 +984,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }
     }
 
-    private void CreateMissingButtons()
-    {
-        // Removed per user request
-    }
-
+    // Removed duplicate CreateMissingButtons
     private void TogglePauseBtn(bool isPaused)
     {
         if( pauseBtn == null || resumeBtn == null)
@@ -788,6 +1000,19 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             if(restartBtn != null) restartBtn.SetActive(true);
             if(menuBtn != null) menuBtn.SetActive(true);
             if(pausedBg != null) pausedBg.SetActive(true);
+
+            // Re-attach listeners + sound to ensure they work after enabling
+            SetupButton(resumeBtn, () => GameManager.instance.PlayPause());
+            SetupButton(restartBtn, RestartGame);
+            SetupButton(menuBtn, GoToMainMenu);
+
+            // Ensure buttons are ON TOP of any other elements in the background
+            if (resumeBtn != null) resumeBtn.transform.SetAsLastSibling();
+            if (restartBtn != null) restartBtn.transform.SetAsLastSibling();
+            if (menuBtn != null) menuBtn.transform.SetAsLastSibling();
+
+            // Ensure layout is correct
+            FixPauseLayout();
         }else
         {
             pauseBtn.SetActive(true);
@@ -800,12 +1025,28 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     public void RestartGame()
     {
+        StartCoroutine(RestartGameRoutine());
+    }
+
+    private IEnumerator RestartGameRoutine()
+    {
+        // Delay to allow button click sound to play
+        yield return new WaitForSecondsRealtime(0.25f);
+        
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public void GoToMainMenu()
     {
+        StartCoroutine(GoToMainMenuRoutine());
+    }
+
+    private IEnumerator GoToMainMenuRoutine()
+    {
+        // Delay to allow button click sound to play
+        yield return new WaitForSecondsRealtime(0.25f);
+        
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
     }
@@ -883,6 +1124,17 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             }
         }
         return null;
+    }
+
+    private void EnsureEventSystem()
+    {
+        if (FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            GameObject eventSystem = new GameObject("EventSystem");
+            eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            // Debug.Log("GuiManager created missing EventSystem.");
+        }
     }
 
     private Transform FindDeepChild(Transform parent, string name)
