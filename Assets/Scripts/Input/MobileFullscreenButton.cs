@@ -15,9 +15,23 @@ public class MobileFullscreenButton : MonoBehaviour
 
     public void ToggleFullscreen()
     {
-        // Toggle Fullscreen
-        // Note: On WebGL Mobile, this requires a user gesture (which the button click provides).
-        Screen.fullScreen = !Screen.fullScreen;
-        Debug.Log("Toggled Fullscreen: " + Screen.fullScreen);
+        if (GuiManager.instance != null)
+        {
+            GuiManager.instance.GoFullScreen();
+        }
+        else
+        {
+            Debug.LogWarning("GuiManager instance not found, falling back to standard fullscreen toggle.");
+            // Fallback logic
+            if (!Screen.fullScreen)
+            {
+                Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
+                Screen.fullScreen = true;
+            }
+            else
+            {
+                Screen.fullScreen = false;
+            }
+        }
     }
 }

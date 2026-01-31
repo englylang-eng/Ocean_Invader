@@ -5,9 +5,15 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
 using Rhinotap.Toolkit;
+using System.Runtime.InteropServices;
 
 public class GuiManager : Singleton<GuiManager>
 {
+    #if UNITY_WEBGL
+    [DllImport("__Internal")]
+    private static extern void RequestFullScreen();
+    #endif
+
     [SerializeField]
     private Image XpBar;
 
@@ -387,11 +393,22 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
     public void GoFullScreen() 
     { 
+        #if UNITY_WEBGL && !UNITY_EDITOR
+        RequestFullScreen();
+        #else
         // Toggle Fullscreen Mode
-        // Works on desktop and mobile browsers (Chrome, Firefox, Safari)
-        // If already fullscreen, this will exit (showing browser bars again).
-        // If not fullscreen, this will enter (hiding browser bars).
-        Screen.fullScreen = !Screen.fullScreen;
+        // Improved logic for Mobile/WebGL compatibility
+        if (!Screen.fullScreen)
+        {
+            // Force FullScreenWindow mode which is often required for mobile/web
+            Screen.fullScreenMode = FullScreenMode.FullScreenWindow;
+            Screen.fullScreen = true;
+        }
+        else
+        {
+            Screen.fullScreen = false;
+        }
+        #endif
     }
 
     private void Update()
@@ -980,7 +997,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             tmp.text = text;
             tmp.color = color;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 56; // Increased from 48 to 56
+            tmp.fontSize = 72; // Increased from 56 to 72
             tmp.fontStyle = FontStyles.Bold;
         }
 

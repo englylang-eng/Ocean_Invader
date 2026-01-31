@@ -73,6 +73,7 @@ public class GameManager : MonoBehaviour
 
     //==============| INSTANCED API |======================//
     public bool isPaused { get; private set; } = false;
+    public bool IsGameOver { get; private set; } = false; // Added to prevent pause during Game Over
 
     public GameObject playerGameObject { get; private set; }
 
@@ -111,6 +112,9 @@ public class GameManager : MonoBehaviour
 
     public  void PlayPause()
     {
+        // Prevent pausing if Game Over sequence is active
+        if (IsGameOver) return;
+
         isPaused = !isPaused;
 
         EventManager.Trigger<bool>("gamePaused", isPaused);
@@ -138,6 +142,8 @@ public class GameManager : MonoBehaviour
     //Mono
     private void Start()
     {
+        IsGameOver = false; // Reset Game Over state
+        
         //Get Virtual Camera Defaults
         GetVcamComponents();
         if (Vcam != null)
@@ -267,6 +273,14 @@ public class GameManager : MonoBehaviour
     Coroutine restartLevelSequence;
     void PlayerDeathSequence()
     {
+        // Fix: If game was paused, force unpause to allow restart sequence to run and hide pause menu
+        if (isPaused)
+        {
+            PlayPause();
+        }
+
+        IsGameOver = true; // Flag Game Over to block pause
+        
         if (restartLevelSequence == null)
             restartLevelSequence = StartCoroutine( RestartLevel() );
     }
@@ -276,6 +290,14 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void TriggerGameWin()
     {
+        // Fix: If game was paused, force unpause to allow restart sequence to run and hide pause menu
+        if (isPaused)
+        {
+            PlayPause();
+        }
+
+        IsGameOver = true; // Flag Game Over to block pause
+        
         if (restartLevelSequence == null)
         {
             // Play win sound
