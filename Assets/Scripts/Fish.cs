@@ -15,7 +15,15 @@ public class Fish : MonoBehaviour
 
     [SerializeField]
     private int xp = 0;
-    public int Xp => xp;
+    // Standardized XP based on Level (can still be overridden in Inspector if needed, but we default it)
+    public int Xp
+    {
+        get
+        {
+            if (xp <= 0) return Mathf.Max(10, level * 15); // Default: Level 1=15, Level 5=75
+            return xp;
+        }
+    }
 
     [SerializeField]
     private bool isFacingRight = true;
@@ -24,6 +32,15 @@ public class Fish : MonoBehaviour
     [SerializeField]
     private float speed = 1f;
     public float Speed => speed;
+
+    [Header("Special Attributes")]
+    [SerializeField]
+    private bool isGoldenFish = false; // Is this the rare "Golden" fish?
+    public bool IsGoldenFish => isGoldenFish;
+
+    [SerializeField]
+    private GameObject goldenParticlePrefab; // Assign in prefab if needed, or we create one
+    private bool goldenStatusActive = false;
 
     // Schooling
     public FishSchool school;
@@ -199,11 +216,50 @@ public class Fish : MonoBehaviour
             defaultYLocal = gfx.localPosition.y;
         }
 
+        // Auto-activate if configured in prefab
+        if (isGoldenFish && !goldenStatusActive)
+        {
+            SetGoldenStatus(true);
+        }
+
         // Setup Manual Collision Check (Bypasses Physics Matrix "Enemy vs Enemy" ignore)
         myCollider = GetComponent<Collider2D>();
         contactFilter = new ContactFilter2D();
         contactFilter.useTriggers = true; 
         contactFilter.useLayerMask = false; // Check against everything, then filter by Component
+    }
+
+    private ParticleSystem goldenParticles;
+
+    private void CreateGoldenParticles()
+    {
+        if (goldenParticles != null) return;
+
+        GameObject pObj = new GameObject("GoldenParticles");
+        pObj.transform.SetParent(transform);
+        pObj.transform.localPosition = Vector3.zero;
+        pObj.transform.localScale = Vector3.one;
+
+        goldenParticles = pObj.AddComponent<ParticleSystem>();
+        var main = goldenParticles.main;
+        main.startLifetime = 1.0f;
+        main.startSpeed = 0f;
+        main.startSize = 0.1f; // Tiny
+        main.startColor = new Color(1f, 0.8f, 0f, 1f); // Gold
+        main.simulationSpace = ParticleSystemSimulationSpace.World; // Trail behavior
+        main.maxParticles = 50;
+
+        var emission = goldenParticles.emission;
+        emission.rateOverTime = 8f; // Just enough, not too much
+
+        var shape = goldenParticles.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 0.3f;
+
+        var renderer = pObj.GetComponent<ParticleSystemRenderer>();
+        renderer.material = new Material(Shader.Find("Sprites/Default"));
+        renderer.sortingLayerName = "Foreground";
+        renderer.sortingOrder = 1;
     }
 
     private void UpdateCollision()
@@ -338,7 +394,7 @@ public class Fish : MonoBehaviour
 
     private void Awake()
     {
-        SetupRigidbody();
+        // Removed SetupRigidbody() to prevent interference with custom movement scripts (e.g. FishMovement)
 
         gfx = GetComponentInChildren<SpriteRenderer>()?.transform;
         if (gfx != null)
@@ -377,6 +433,58 @@ public class Fish : MonoBehaviour
         }
     }
 
+    public void SetGoldenStatus(bool status)
+    {
+        if (goldenStatusActive && status) return; // Already active
+
+        isGoldenFish = status;
+        if (isGoldenFish)
+        {
+            goldenStatusActive = true;
+            CreateGoldenParticles();
+            // Golden fish are slightly faster
+            speed *= 1.2f; 
+
+            // ENSURE IT CAN BE EATEN
+            // Golden fish are bonus/loot, so they should be low level (1) so the player can eat them early.
+            // Unless manually set to something specifically lower/higher, we force it to 1 to ensure edibility.
+            if (level <= 0 || level > 5) level = 1;
+
+            // ENSURE MOVEMENT for Golden Fish
+            // Ensure Rigidbody is Dynamic and configured for FishAI
+            Rigidbody2D rb = GetComponent<Rigidbody2D>();
+            if (rb == null) rb = gameObject.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Dynamic;
+            rb.gravityScale = 0f;
+            rb.simulated = true;
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate; // Important for smooth FishAI movement
+
+            // Use FishAI (Do NOT destroy it)
+            var ai = GetComponent<FishAI>();
+            if (ai != null)
+            {
+                ai.enabled = true; // Ensure it's enabled
+                // Adjust stats for Golden Fish
+                ai.moveSpeed = 5f; // Match the requested speed (was 4f default)
+                ai.turnSpeed = 250f; // Snappier turning (was 200f default)
+                ai.stayOnScreen = true; // Enable boundary logic
+            }
+
+            // Remove FishMovement if it exists (Legacy cleanup)
+            var movement = GetComponent<FishMovement>();
+            if (movement != null)
+            {
+                Destroy(movement);
+            }
+        }
+        else
+        {
+            goldenStatusActive = false;
+        }
+    }
+
     public void SetLevel(int newLevel)
     {
         // USER REQUIREMENT: 1 Fish = 1 Level.
@@ -389,6 +497,17 @@ public class Fish : MonoBehaviour
             return;
         }
 
+        level = newLevel;
+        if (!initialized)
+        {
+            initialScale = transform.localScale;
+            initialized = true;
+        }
+        EvaluateFish();
+    }
+
+    public void ForceLevel(int newLevel)
+    {
         level = newLevel;
         if (!initialized)
         {

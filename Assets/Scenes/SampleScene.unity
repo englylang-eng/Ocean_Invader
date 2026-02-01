@@ -453,8 +453,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   PlayerPrefab: {fileID: 8469209948450142919, guid: 487a101450222d54e981b6215c6225a2,
     type: 3}
-  spawnYOffset: 0.1
-  dropDuration: 0.8
+  spawnYOffset: 10
+  dropDuration: 2.5
   spawnSound: {fileID: 8300000, guid: 66257883a1c81f340bc5874819129bc2, type: 3}
   bubbleClips:
   - {fileID: 8300000, guid: 787c0bc35c12c374f821f9c8d4ace79d, type: 3}
@@ -1745,7 +1745,10 @@ MonoBehaviour:
   isActive: 1
   maxFishCount: 15
   spawnInterval: 2
-  hazardPrefab: {fileID: 0}
+  goldenFishPrefab: {fileID: 649591718645569724, guid: 4e98ddbd1faf3ef46ae1bf7bc2383dbc,
+    type: 3}
+  hazardPrefab: {fileID: 6599132742206490670, guid: e04f7588cabd0254ba8ab3aa0df844a0,
+    type: 3}
   hazardSprite: {fileID: 21300000, guid: 97183990a7d0bd84ebfd9255697ca8fb, type: 3}
   hazardSpriteVariant: {fileID: 21300000, guid: 51079652293c7664cb2c2a34c78b84c7,
     type: 3}
@@ -1753,7 +1756,7 @@ MonoBehaviour:
   hazardScale: 0.8
   hazardSound: {fileID: 8300000, guid: e91d0d74377f1544693e17bb4c26e462, type: 3}
   hazardBubblePrefab: {fileID: 0}
-  sharkPrefab: {fileID: 122163019671587838, guid: e349be2bb26759d4396d9adf38d476cc,
+  sharkPrefab: {fileID: 697155302020639099, guid: e349be2bb26759d4396d9adf38d476cc,
     type: 3}
   sharkSprite: {fileID: 21300000, guid: 948b1361ead89fc47988ed19c176ea80, type: 3}
   warningIconPrefab: {fileID: 0}
@@ -7179,22 +7182,22 @@ PrefabInstance:
     - target: {fileID: 5499575120182313805, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
       propertyPath: m_SizeDelta.x
-      value: 199.72
+      value: 199.32
       objectReference: {fileID: 0}
     - target: {fileID: 5499575120182313805, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
       propertyPath: m_SizeDelta.y
-      value: 10.921
+      value: 8.0703
       objectReference: {fileID: 0}
     - target: {fileID: 5499575120182313805, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19948
+      value: -0.00034673
       objectReference: {fileID: 0}
     - target: {fileID: 5499575120182313805, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.0001449585
+      value: -0.000012397766
       objectReference: {fileID: 0}
     - target: {fileID: 5499575120819669564, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
@@ -7254,7 +7257,7 @@ PrefabInstance:
     - target: {fileID: 5499575122033911662, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}
       propertyPath: m_SizeDelta.y
-      value: 10.9207
+      value: 8.0703
       objectReference: {fileID: 0}
     - target: {fileID: 5499575122033911662, guid: 585d9466035eb8d47a59d86d6c29c700,
         type: 3}

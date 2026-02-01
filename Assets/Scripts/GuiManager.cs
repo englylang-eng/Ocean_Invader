@@ -192,10 +192,16 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
         EventManager.StartListening("GameWin", () => {
              ShowGameMessage(victoryMessage);
+             // Ensure cursor is visible for UI interaction
+             Cursor.visible = true;
+             Cursor.lockState = CursorLockMode.None;
         });
 
         EventManager.StartListening("GameLoss", () => {
              ShowGameMessage(defeatMessage);
+             // Ensure cursor is visible for UI interaction
+             Cursor.visible = true;
+             Cursor.lockState = CursorLockMode.None;
         });
 
         EventManager.StartListening("GameStart", () => {
@@ -264,7 +270,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
     private void ForceEnableAudio()
     {
          // 1. Play silent sound to unlock audio engine
-         if (uiAudioSource != null)
+         if (uiAudioSource != null && uiAudioSource.clip != null)
          {
              uiAudioSource.PlayOneShot(uiAudioSource.clip); // Plays null or whatever, just triggers context
          }
@@ -325,9 +331,9 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         // 3. Handle Fullscreen Button (Left of Pause Button)
         if (fullscreenSprite == null) fullscreenSprite = Resources.Load<Sprite>("fullscreen_icon");
         
-        // Position: -50 (Pause) - 40 (Pause Size) - 10 (Gap) = -100
+        // Position: -50 (Pause Pos) - 30 (Pause Size) - 10 (Gap) = -90
         // Y aligned with Pause (-30)
-        fullscreenBtn = CreateControlButton("FullscreenButton", fullscreenSprite, new Vector2(-100, -30), new Vector2(40, 40), () => GoFullScreen());
+        fullscreenBtn = CreateControlButton("FullscreenButton", fullscreenSprite, new Vector2(-90, -30), new Vector2(40, 40), () => GoFullScreen());
         if (fullscreenBtn != null)
         {
              fullscreenBtn.transform.SetParent(mainCanvas.transform, false);
@@ -599,11 +605,11 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
 
         // Menu -> "muWnuy"
         CustomizeButton(menuBtn, "muWnuy", buttonColor, buttonSize, fontSize);
-        PositionButton(menuBtn, new Vector2(-150f * scaleFactor, -100f * scaleFactor));
+        PositionButton(menuBtn, new Vector2(150f * scaleFactor, -100f * scaleFactor));
 
         // Restart -> "safµI"
         CustomizeButton(restartBtn, "safµI", buttonColor, buttonSize, fontSize);
-        PositionButton(restartBtn, new Vector2(150f * scaleFactor, -100f * scaleFactor));
+        PositionButton(restartBtn, new Vector2(-150f * scaleFactor, -100f * scaleFactor));
     }
 
     private void CustomizeButton(GameObject btnObj, string label, Color color, Vector2 size, int fontSize = 24)
@@ -646,6 +652,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             txt.fontSize = fontSize;
             txt.fontStyle = FontStyle.Bold; // Main Menu is Bold
             txt.alignment = TextAnchor.MiddleCenter;
+            txt.alignByGeometry = true; // Improve centering for fonts with offsets
             
             // Fix: Use Limon Font for Khmer Text (User Request)
             Font standardFont = Resources.Load<Font>("lmns1");
@@ -676,6 +683,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             RectTransform rtText = txt.GetComponent<RectTransform>();
             if (rtText != null)
             {
+                rtText.pivot = new Vector2(0.5f, 0.5f);
                 rtText.anchorMin = Vector2.zero;
                 rtText.anchorMax = Vector2.one;
                 rtText.sizeDelta = Vector2.zero;
@@ -984,7 +992,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             txt.color = color;
             txt.alignment = TextAnchor.MiddleCenter;
             // High quality trick: Large font size, scaled down object
-            txt.fontSize = 56; // Increased from 48 to 56
+            txt.fontSize = 64; // Increased from 56 to 64
             txt.fontStyle = FontStyle.Bold; 
             
             // Remove Shadow if it exists
@@ -997,7 +1005,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             tmp.text = text;
             tmp.color = color;
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 72; // Increased from 56 to 72
+            tmp.fontSize = 80; // Increased from 72 to 80
             tmp.fontStyle = FontStyles.Bold;
         }
 
@@ -1032,8 +1040,8 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         Vector3 endPos = startPos + Vector3.up * 100f + Vector3.right * driftX;
 
         // Scale Logic: Start tiny, target scale 0.3 (for high quality small text)
-        // AUTO-FIX: Increased from 0.3 to 0.45 per user request "seem abit shrink"
-        Vector3 targetScale = Vector3.one * 0.45f; 
+        // AUTO-FIX: Increased from 0.45 to 0.6 per user request
+        Vector3 targetScale = Vector3.one * 0.6f; 
         if(rt != null) rt.localScale = Vector3.zero; 
 
         Color startColor = Color.white;

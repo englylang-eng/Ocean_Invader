@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7289113793545356946}
   - component: {fileID: 5395377123146061026}
   - component: {fileID: 3969578306087048524}
+  - component: {fileID: 1234567890}
   m_Layer: 0
   m_Name: fisherman_hazard_1
   m_TagString: Untagged
@@ -92,24 +93,38 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
---- !u!65 &3969578306087048524
-BoxCollider:
+--- !u!61 &3969578306087048524
+BoxCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6599132742206490670}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 2.1728992, y: 1.133812, z: 0.2}
-  m_Center: {x: 0.01188755, y: -30.784904, z: 0}
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0.04282856, y: -30.624012}
+  m_Size: {x: 2.2347813, y: 0.83678246}
+--- !u!114 &1234567890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6599132742206490670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0263faa497909954cb44515d1426da4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fallSpeed: 3
+  retractSpeed: 8
+  roamSpeed: 1.5
+  minRoamTime: 6
+  maxRoamTime: 10
+  moveSound: {fileID: 8300000, guid: e91d0d74377f1544693e17bb4c26e462, type: 3}
+  bubbleParticlesPrefab: {fileID: 0}
+  autoConfigureCollider: 0

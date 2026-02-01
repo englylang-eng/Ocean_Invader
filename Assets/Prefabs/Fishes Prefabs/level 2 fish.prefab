@@ -241,11 +241,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   level: 2
-  xp: 10
+  xp: 0
   isFacingRight: 1
   speed: 3
   school: {fileID: 0}
   formationOffset: {x: 0, y: 0}
+  bobSpeed: 2
+  bobAmount: 0.1
 --- !u!114 &1772957164
 MonoBehaviour:
   m_ObjectHideFlags: 0

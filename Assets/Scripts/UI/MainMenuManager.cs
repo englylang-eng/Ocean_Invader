@@ -76,6 +76,33 @@ public class MainMenuManager : MonoBehaviour
         UpdateMenuButtons();
     }
 
+    private void Update()
+    {
+        // Mobile Portrait Check (Similar to GameManager)
+        // Ensure we pause/mute if the device is rotated to portrait (User Request)
+        if (Application.isMobilePlatform || Application.isEditor)
+        {
+             if (Screen.height > Screen.width) // Portrait
+             {
+                 if (Time.timeScale != 0f)
+                 {
+                     Time.timeScale = 0f;
+                     AudioListener.pause = true;
+                 }
+                 // Force mute ensuring no slippage
+                 if (!AudioListener.pause) AudioListener.pause = true;
+             }
+             else // Landscape
+             {
+                 if (Time.timeScale == 0f)
+                 {
+                     Time.timeScale = 1f;
+                     AudioListener.pause = false;
+                 }
+             }
+        }
+    }
+
     private void OnValidate()
     {
         // Allow live updates in Editor

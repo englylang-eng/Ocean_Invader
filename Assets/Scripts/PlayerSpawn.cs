@@ -13,11 +13,11 @@ public class PlayerSpawn : MonoBehaviour
     [Header("Spawn Drop Settings")]
     [Tooltip("How far above the top of the viewport to spawn (in world units). This value is added to the world Y coordinate at the top of the camera view.")]
     [SerializeField]
-    private float spawnYOffset = 2.5f; // world units above the top of the camera view
+    private float spawnYOffset = 10f; // Increased from 2.5f for "Feeding Frenzy" style drop
 
     [Tooltip("Duration of the drop animation in seconds")]
     [SerializeField]
-    private float dropDuration = 0.8f;
+    private float dropDuration = 2.5f; // Increased from 1.2f for slower, smoother drop
 
     [Header("Audio")]
     [Tooltip("Sound to play when player spawns (e.g. Splash or Intro)")]

@@ -34,6 +34,7 @@ public class FishAI : MonoBehaviour
     private float lifeTime = 0f;
 
     [Header("Obstacle Avoidance")]
+    public bool stayOnScreen = false; // Default false (enabled for Golden Fish only)
     public LayerMask obstacleMask;
     public float avoidDistance = 3f;
     [Tooltip("Layers to include in separation calculations (e.g. Fish, Enemy)")]
@@ -46,6 +47,7 @@ public class FishAI : MonoBehaviour
 
     private Rigidbody2D rb;
     private Transform player;
+    private Transform chaseTarget; // Can be Player or another Fish
     private GameManager cachedGameManager; // Cached reference
     private Fish fishData;
     private Vector2 currentDirection;
@@ -60,12 +62,8 @@ public class FishAI : MonoBehaviour
     // Conflicting script handling
     void Awake()
     {
-        // DESTROY conflicting scripts to ensure no interference
-        var fishMovement = GetComponent<FishMovement>();
-        if (fishMovement != null)
-        {
-            Destroy(fishMovement);
-        }
+        // Removed destructive logic. We no longer destroy FishMovement automatically.
+        // If both are present, we rely on the manager/setup to enable the correct one.
 
         MonoBehaviour[] scripts = GetComponents<MonoBehaviour>();
         foreach (var script in scripts)
@@ -154,7 +152,10 @@ public class FishAI : MonoBehaviour
                     targetDir = GetWanderDirection();
                     break;
                 case State.Chase:
-                    if (player) targetDir = (player.position - transform.position).normalized;
+                    if (chaseTarget != null) 
+                        targetDir = (chaseTarget.position - transform.position).normalized;
+                    else if (player != null) 
+                        targetDir = (player.position - transform.position).normalized;
                     break;
                 case State.Flee:
                     if (player) targetDir = (transform.position - player.position).normalized;
@@ -182,6 +183,17 @@ public class FishAI : MonoBehaviour
         if (cachedSeparationDir != Vector2.zero)
         {
              targetDir += cachedSeparationDir * 1.5f;
+        }
+
+        // 4. Boundary Avoidance (If enabled)
+        if (stayOnScreen)
+        {
+            Vector2 boundsDir = GetBoundaryAvoidanceDirection();
+            if (boundsDir != Vector2.zero)
+            {
+                 // Add strong force (Stronger than obstacle avoidance 3.0f) to ensure we stay in bounds
+                 targetDir += boundsDir * 5.0f;
+            }
         }
 
         // Normalize once after all forces are applied
@@ -244,16 +256,19 @@ public class FishAI : MonoBehaviour
         {
             currentCooldownTimer -= Time.fixedDeltaTime;
             currentState = State.Wander; // Force wander during cooldown
+            chaseTarget = null;
             return;
         }
 
-        float dist = Vector2.Distance(transform.position, player.position);
+        float distToPlayer = Vector2.Distance(transform.position, player.position);
         int playerLevel = GameManager.PlayerLevel;
 
-        if (dist < fleeRadius && playerLevel > fishData.Level)
+        // 1. FLEE PLAYER (Priority: Survival)
+        if (distToPlayer < fleeRadius && playerLevel > fishData.Level)
         {
             currentState = State.Flee;
-            currentChaseTimer = 0f; // Reset chase timer if fleeing
+            chaseTarget = null;
+            currentChaseTimer = 0f;
 
             // Break Formation!
             if (fishData.school != null)
@@ -261,10 +276,14 @@ public class FishAI : MonoBehaviour
                 fishData.school = null;
                 fishData.formationOffset = Vector2.zero;
             }
+            return;
         }
-        else if (dist < chaseRadius && playerLevel <= fishData.Level)
+
+        // 2. CHASE PLAYER (Priority: Aggression)
+        if (distToPlayer < chaseRadius && playerLevel <= fishData.Level)
         {
             currentState = State.Chase;
+            chaseTarget = player;
             
             // Increment Chase Timer
             currentChaseTimer += Time.fixedDeltaTime;
@@ -274,13 +293,45 @@ public class FishAI : MonoBehaviour
                 currentCooldownTimer = chaseCooldownTime;
                 currentChaseTimer = 0f;
                 currentState = State.Wander;
+                chaseTarget = null;
+            }
+            return;
+        }
+
+        // 3. CHASE OTHER FISH (Priority: Hunger)
+        // If not interacting with player, look for food.
+        Fish nearestFood = null;
+        float nearestDist = chaseRadius; // Only look within chase radius
+
+        // Optimization: Only scan every few frames or if we are wandering
+        foreach (var f in Fish.AllFish)
+        {
+            if (f == null || f == fishData) continue;
+            
+            // Can I eat it?
+            if (f.Level < fishData.Level)
+            {
+                float d = Vector2.Distance(transform.position, f.transform.position);
+                if (d < nearestDist)
+                {
+                    nearestDist = d;
+                    nearestFood = f;
+                }
             }
         }
-        else
+
+        if (nearestFood != null)
         {
-            currentState = State.Wander;
-            currentChaseTimer = 0f; // Reset chase timer if we lost the player naturally
+            currentState = State.Chase;
+            chaseTarget = nearestFood.transform;
+            currentChaseTimer = 0f; // Reset timer as switching targets resets interest? 
+            return;
         }
+
+        // 4. WANDER
+        currentState = State.Wander;
+        chaseTarget = null;
+        currentChaseTimer = 0f;
     }
 
     void HandleLeavingLogic()
@@ -367,6 +418,20 @@ public class FishAI : MonoBehaviour
         RaycastHit2D hit = Physics2D.Raycast(transform.position, currentDirection, avoidDistance, obstacleMask);
         if (hit.collider != null)
         {
+            // CHECK FOR FOOD: If we hit a fish we can eat, DON'T avoid it!
+            if (fishData != null)
+            {
+                // TryGetComponent is faster
+                if (hit.collider.TryGetComponent<Fish>(out Fish otherFish))
+                {
+                    if (fishData.Level > otherFish.Level)
+                    {
+                        // It's prey! Charge!
+                        return Vector2.zero;
+                    }
+                }
+            }
+
             // Reflect off the normal
             return Vector2.Reflect(currentDirection, hit.normal).normalized;
         }
@@ -375,11 +440,27 @@ public class FishAI : MonoBehaviour
         Vector2 leftDir = Quaternion.Euler(0, 0, 30) * currentDirection;
         Vector2 rightDir = Quaternion.Euler(0, 0, -30) * currentDirection;
 
-        if (Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask))
+        // Check Left
+        RaycastHit2D hitLeft = Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask);
+        if (hitLeft.collider != null)
+        {
+            if (fishData != null && hitLeft.collider.TryGetComponent<Fish>(out Fish otherFish))
+            {
+                if (fishData.Level > otherFish.Level) return Vector2.zero;
+            }
             return Quaternion.Euler(0, 0, -45) * currentDirection; // Turn right
+        }
             
-        if (Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask))
+        // Check Right
+        RaycastHit2D hitRight = Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask);
+        if (hitRight.collider != null)
+        {
+            if (fishData != null && hitRight.collider.TryGetComponent<Fish>(out Fish otherFish))
+            {
+                if (fishData.Level > otherFish.Level) return Vector2.zero;
+            }
             return Quaternion.Euler(0, 0, 45) * currentDirection; // Turn left
+        }
 
         return Vector2.zero;
     }
@@ -423,5 +504,32 @@ public class FishAI : MonoBehaviour
         }
 
         return separationCount > 0 ? separation.normalized : Vector2.zero;
+    }
+
+    Vector2 GetBoundaryAvoidanceDirection()
+    {
+        if (Camera.main == null) return Vector2.zero;
+
+        float screenRatio = (float)Screen.width / (float)Screen.height;
+        float height = Camera.main.orthographicSize;
+        float width = height * screenRatio;
+
+        // Add a margin so they turn before hitting the edge
+        float margin = 1.0f; 
+        
+        Vector2 pos = transform.position;
+        Vector2 steer = Vector2.zero;
+
+        if (pos.x > width - margin)
+            steer.x = -1;
+        else if (pos.x < -width + margin)
+            steer.x = 1;
+
+        if (pos.y > height - margin)
+            steer.y = -1;
+        else if (pos.y < -height + margin)
+            steer.y = 1;
+
+        return steer.normalized;
     }
 }

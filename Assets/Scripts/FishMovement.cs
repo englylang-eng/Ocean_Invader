@@ -16,8 +16,13 @@ public class FishMovement : MonoBehaviour
     public float wanderDistance = 3f;
     public float wanderJitter = 1f;
 
+    public enum BehaviorType { Passive, Aggressive, Flee }
+
     [Header("Behavior")]
+    public BehaviorType behaviorType = BehaviorType.Passive;
+
     public float chaseRadius = 5f;
+    public float fleeRadius = 4f; // Add flee radius
     public float avoidDistance = 3f;
     public LayerMask obstacleMask;
 
@@ -85,17 +90,28 @@ public class FishMovement : MonoBehaviour
         // 1. Determine Target Direction
         Vector2 targetDir = currentDirection;
         
-        // Check for chase
+        // Check for chase or flee
         bool isChasing = false;
-        if (player != null && Vector2.Distance(transform.position, player.position) < chaseRadius)
+        
+        if (player != null)
         {
-             // Simple check: Only chase if player is smaller? Or just always chase for now?
-             // Assuming FishMovement is for enemies, they chase if they can eat.
-             // For now, let's keep it simple: Chase if close.
-             targetDir = (player.position - transform.position).normalized;
-             isChasing = true;
+            float dist = Vector2.Distance(transform.position, player.position);
+            
+            if (behaviorType == BehaviorType.Aggressive && dist < chaseRadius)
+            {
+                 // Chase
+                 targetDir = (player.position - transform.position).normalized;
+                 isChasing = true;
+            }
+            else if (behaviorType == BehaviorType.Flee && dist < fleeRadius)
+            {
+                 // Flee
+                 targetDir = (transform.position - player.position).normalized;
+                 isChasing = true; // Use chase speed boost for fleeing too
+            }
         }
-        else
+        
+        if (!isChasing)
         {
             // Wander
             targetDir = GetWanderDirection();
@@ -106,6 +122,14 @@ public class FishMovement : MonoBehaviour
         if (avoidDir != Vector2.zero)
         {
             targetDir = Vector2.Lerp(targetDir, avoidDir, 0.8f).normalized;
+        }
+
+        // Boundary Avoidance (Keep on Screen)
+        Vector2 boundsDir = GetBoundaryAvoidanceDirection();
+        if (boundsDir != Vector2.zero)
+        {
+            // Strong override to keep fish on screen
+            targetDir = Vector2.Lerp(targetDir, boundsDir, 0.6f).normalized;
         }
 
         if (targetDir == Vector2.zero) targetDir = currentDirection;
@@ -133,9 +157,10 @@ public class FishMovement : MonoBehaviour
 
             graphicsTransform.rotation = Quaternion.Euler(0, 0, angle + wiggle);
             
+            // Fix: Increase deadzone to prevent rapid flipping when moving vertically
             Vector3 scale = transform.localScale;
-            if (currentDirection.x < -0.1f) scale.y = -Mathf.Abs(scale.y);
-            else if (currentDirection.x > 0.1f) scale.y = Mathf.Abs(scale.y);
+            if (currentDirection.x < -0.25f) scale.y = -Mathf.Abs(scale.y);
+            else if (currentDirection.x > 0.25f) scale.y = Mathf.Abs(scale.y);
             transform.localScale = scale;
         }
 
@@ -158,17 +183,91 @@ public class FishMovement : MonoBehaviour
     {
         RaycastHit2D hit = Physics2D.Raycast(transform.position, currentDirection, avoidDistance, obstacleMask);
         if (hit.collider != null)
-            return Vector2.Reflect(currentDirection, hit.normal).normalized;
+        {
+             // Check if it's food
+             if (hit.collider.GetComponent<Fish>() != null)
+             {
+                 Fish f = hit.collider.GetComponent<Fish>();
+                 if (fishData != null && fishData.Level > f.Level) 
+                 {
+                     // It's food, don't reflect!
+                     // Return zero so we continue straight into it
+                 }
+                 else
+                 {
+                     return Vector2.Reflect(currentDirection, hit.normal).normalized;
+                 }
+             }
+             else
+             {
+                 return Vector2.Reflect(currentDirection, hit.normal).normalized;
+             }
+        }
             
         Vector2 leftDir = Quaternion.Euler(0, 0, 30) * currentDirection;
         Vector2 rightDir = Quaternion.Euler(0, 0, -30) * currentDirection;
 
         if (Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask))
-            return Quaternion.Euler(0, 0, -45) * currentDirection;
+        {
+            // Check if it's food (Basic check)
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask);
+            if (hit.collider != null && hit.collider.GetComponent<Fish>() != null)
+            {
+                 // If it's a fish, ignore it for now (simplified vs FishAI)
+                 // Or better, check level if we can access it
+                 Fish f = hit.collider.GetComponent<Fish>();
+                 if (fishData != null && fishData.Level > f.Level) { /* Do nothing, don't turn */ }
+                 else return Quaternion.Euler(0, 0, -45) * currentDirection;
+            }
+            else
+            {
+                return Quaternion.Euler(0, 0, -45) * currentDirection;
+            }
+        }
             
         if (Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask))
-            return Quaternion.Euler(0, 0, 45) * currentDirection;
+        {
+             // Check if it's food
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask);
+            if (hit.collider != null && hit.collider.GetComponent<Fish>() != null)
+            {
+                 Fish f = hit.collider.GetComponent<Fish>();
+                 if (fishData != null && fishData.Level > f.Level) { /* Do nothing */ }
+                 else return Quaternion.Euler(0, 0, 45) * currentDirection;
+            }
+            else
+            {
+                return Quaternion.Euler(0, 0, 45) * currentDirection;
+            }
+        }
 
         return Vector2.zero;
+    }
+
+    Vector2 GetBoundaryAvoidanceDirection()
+    {
+        if (Camera.main == null) return Vector2.zero;
+
+        float screenRatio = (float)Screen.width / (float)Screen.height;
+        float height = Camera.main.orthographicSize;
+        float width = height * screenRatio;
+
+        // Add a margin so they turn before hitting the edge
+        float margin = 1.0f; 
+        
+        Vector2 pos = transform.position;
+        Vector2 steer = Vector2.zero;
+
+        if (pos.x > width - margin)
+            steer.x = -1;
+        else if (pos.x < -width + margin)
+            steer.x = 1;
+
+        if (pos.y > height - margin)
+            steer.y = -1;
+        else if (pos.y < -height + margin)
+            steer.y = 1;
+
+        return steer.normalized;
     }
 }

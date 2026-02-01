@@ -100,6 +100,10 @@ public class PlayerController : MonoBehaviour
     private float currentSpeedMultiplier = 1f;
     private float boostTimer = 0f;
 
+    // XP Multiplier (Golden Fish Bonus)
+    private float xpMultiplier = 1f;
+    private float xpMultiplierTimer = 0f;
+    
     // Visuals
     private float currentBaseScale = 1f;
     private SpriteRenderer spriteRenderer;
@@ -141,10 +145,10 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        // USER REQUEST: "decrease the score requirement to complete the game"
-        // Override prefab defaults for faster progression
-        baseXpRequirement = 50; 
-        levelXpIncreasePercentage = 0.15f;
+        // USER REQUEST: "Feeding Frenzy" Style Progression
+        // Easy start, but gets significantly harder at higher levels.
+        baseXpRequirement = 100; // Increase base so Level 1 isn't instant
+        levelXpIncreasePercentage = 1.0f; // 100% increase (Doubles every level)
 
         // FIX: Ensure MaxLevel is at least 6 (User reported Level 6 issues)
         if (maxLevel < 6)
@@ -686,6 +690,13 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // FIX: Stop physics movement immediately if dead (User Request)
+        if (!isAlive)
+        {
+            rb.linearVelocity = Vector2.zero;
+            return;
+        }
+
         if (isPaused)
         {
             rb.linearVelocity = Vector2.zero;
@@ -812,6 +823,17 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // Handle XP Multiplier Timer
+        if (xpMultiplierTimer > 0)
+        {
+            xpMultiplierTimer -= Time.deltaTime;
+            if (xpMultiplierTimer <= 0)
+            {
+                xpMultiplier = 1f;
+                GuiManager.instance.ShowFloatingText(transform.position, "BinÞú Fmµta", Color.white);
+            }
+        }
+
         if (boostTimer > 0)
         {
             boostTimer -= Time.deltaTime;
@@ -858,7 +880,12 @@ public class PlayerController : MonoBehaviour
         EventManager.Trigger("playerDeath");
         EventManager.Trigger("GameLoss"); // Trigger Loss Message
         EventManager.Trigger<int>("GameOver", score);
+        
+        // FIX: Stop input and movement immediately
         isAlive = false;
+        _moveInput = Vector2.zero; 
+        if(rb != null) rb.linearVelocity = Vector2.zero;
+
         playerGraphics.gameObject.SetActive(false);
         Destroy(gameObject, 1f);
 
@@ -885,16 +912,44 @@ public class PlayerController : MonoBehaviour
         //Kill the referenced fish
 
         fish.Die();
-        currentXp += fish.Xp;
 
-        score += (fish.Xp * Level);
+        // Check for Golden Fish
+        if (fish.IsGoldenFish)
+        {
+            ActivateXpMultiplier(2f, 10f); // 2x XP for 10 seconds
+            // Play Special Sound
+            if (audioSource != null && boostStartClip != null) audioSource.PlayOneShot(boostStartClip, 1.2f);
+            
+            // Golden fish itself gives 0 XP, just the buff
+            return;
+        }
+
+        // Apply Multiplier
+        int finalXp = Mathf.RoundToInt(fish.Xp * xpMultiplier);
+
+        currentXp += finalXp;
+
+        score += (finalXp * Level);
 
         GuiManager.instance.SetXp(currentXp, currentLevelXp, Level, maxLevel);
         
         // Show Floating XP Text
         // Updated to Khmer format: "÷10 BinÞú" (where ÷ is + in that font)
-        GuiManager.instance.ShowFloatingText(fish.transform.position, "÷" + fish.Xp + " BinÞú", Color.white);
+        // User requested NO prefix change for x2, just color change.
+        string prefix = "÷";
+        Color xpColor = (xpMultiplier > 1f) ? new Color(1f, 0.8f, 0f, 1f) : Color.white; // Gold color for x2
+        GuiManager.instance.ShowFloatingText(fish.transform.position, prefix + finalXp + " BinÞú", xpColor);
 
+    }
+
+    public void ActivateXpMultiplier(float multiplier, float duration)
+    {
+        xpMultiplier = multiplier;
+        xpMultiplierTimer = duration;
+        // Ideally notify UI here
+        // Limon Font Mapping: x -> ខ, * -> 8.
+        // Solution: Use '2dg' which renders as '2ដង' (2 Times) in Khmer Limon.
+        GuiManager.instance.ShowFloatingText(transform.position, "RtImas 2dg BinÞú ¡", new Color(1f, 0.8f, 0f, 1f));
     }
 
     private void LevelUp()
@@ -1003,8 +1058,9 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        // Optimization: Check tag before GetComponent
-        if (other.CompareTag("Enemy"))
+        // Optimization: Check tag OR Component
+        // Fix: Removed rigid tag check. We check for Fish component directly to be more robust.
+        // if (other.CompareTag("Enemy"))
         {
             Fish collidedFish = other.GetComponent<Fish>();
             if (collidedFish != null)
@@ -1040,11 +1096,17 @@ public class PlayerController : MonoBehaviour
         }
         float result;
         
-        // SWITCHED TO LINEAR SCALING (User Request: "re-calculate xp")
-        // Exponential growth (Power) was making high levels too slow.
-        // New Formula: Base * (1 + (Level * %Increase))
+        // SWITCHED TO EXPONENTIAL SCALING (User Request: "Feeding Frenzy Style")
+        // Linear was making high levels too fast because fish XP scaled faster than the requirement.
+        // New Formula: Base * (1.5 ^ Level)
         
-        result = (float)xpForFirstLevel * (1f + (currentLevel * levelXpIncreasePercentage));
+        // Example with Base 50, Rate 0.5:
+        // Lvl 1: 50 * 1.5 = 75
+        // Lvl 2: 75 * 1.5 = 112
+        // ...
+        // Lvl 5: ~380 (Requires eating ~8 big fish instead of 2)
+        
+        result = (float)xpForFirstLevel * Mathf.Pow(1f + levelXpIncreasePercentage, currentLevel);
 
         return Mathf.RoundToInt(result);
     }

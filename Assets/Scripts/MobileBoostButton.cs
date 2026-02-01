@@ -22,7 +22,7 @@ public class MobileBoostButton : MonoBehaviour, IPointerDownHandler
         if (rt != null && (Mathf.Abs(rt.sizeDelta.x - targetSize) > 1))
         {
             rt.sizeDelta = new Vector2(targetSize, targetSize);
-            rt.anchoredPosition = new Vector2(-200, 320); // Improved position (Aligned with Joystick)
+            rt.anchoredPosition = new Vector2(-200, 380); // Improved position (Aligned with Joystick)
             
             // Also scale the icon if it exists (Child 0 usually)
             if (transform.childCount > 0)

@@ -26,6 +26,8 @@ public class GridController : MonoBehaviour
     private int maxFishCount = 30; // Increased limit to allow more fish density (User Request: "spawn abit more fishes")
     [SerializeField]
     private float spawnInterval = 1.0f; // Spawning happens faster (was 1.5f -> 1.0f)
+    [SerializeField]
+    private GameObject goldenFishPrefab; // Custom prefab for the rare golden fish
     private float spawnTimer = 0f;
 
     [Header("Hazard Settings")]
@@ -259,6 +261,48 @@ public class GridController : MonoBehaviour
             
             // Difficulty Logic:
             // User Request: 80% Current Level (Eatable), 20% Next Level (Predator)
+            
+            // SPECIAL: Check for Golden Fish Spawn (Rare!)
+            // Chance: 5% (0.05) - Game Ready Setting
+            if (Random.value < 0.05f)
+            {
+                // Spawn Golden Fish!
+                Fish goldenPrefab = null;
+
+                // Priority 1: User assigned prefab
+                if (goldenFishPrefab != null)
+                {
+                    goldenPrefab = goldenFishPrefab.GetComponent<Fish>();
+                }
+                
+                // Priority 2: Fallback to Level 1 Fish
+                if (goldenPrefab == null)
+                {
+                    string goldenBaseName = "level 1 fish"; // Base prefab
+                    goldenPrefab = enemyLibrary.GetPrefabByName(1, goldenBaseName);
+                    if (goldenPrefab == null) goldenPrefab = enemyLibrary.GetRandomPrefab(1);
+                }
+                
+                if (goldenPrefab != null)
+                {
+                    // Spawn it
+                    Fish golden = enemyLibrary.SpawnSpecific(goldenPrefab, spawnPos, 0f, 0f, -1);
+                    if (golden != null)
+                    {
+                        // Apply Golden Attributes
+                        // If it's the custom prefab, it might already handle this in Start(), 
+                        // but calling it again is safe due to our checks.
+                        golden.SetGoldenStatus(true);
+                        
+                        // Force Level 1 so it can be eaten by Level 2+ fish and the Player
+                        golden.ForceLevel(1);
+
+                        OrientFish(golden, spawnPos, new Vector2(cam.transform.position.x, spawnPos.y));
+                        return; // Done for this cycle
+                    }
+                }
+            }
+
             // Logic slides with Player Level.
             
             int spawnLevel = 1;
@@ -485,7 +529,8 @@ public class GridController : MonoBehaviour
                     col.isTrigger = true;
                     if (sr.sprite != null) col.size = sr.sprite.bounds.size;
                     
-                    hazardTemplate.AddComponent<Hazard>();
+                    Hazard hz = hazardTemplate.AddComponent<Hazard>();
+                    hz.autoConfigureCollider = true; // Enable auto-config for procedural hazards
                     hazardTemplate.tag = "Enemy";
                     hazardTemplate.transform.localScale = Vector3.one * hazardScale;
                 }
@@ -520,7 +565,8 @@ public class GridController : MonoBehaviour
                 col.isTrigger = true;
                 col.size = new Vector2(1f, 1f);
 
-                hazardObj.AddComponent<Hazard>();
+                Hazard hz = hazardObj.AddComponent<Hazard>();
+                hz.autoConfigureCollider = true; // Enable auto-config for fallback
                 hazardObj.tag = "Enemy";
                 
                 Renderer r = hazardObj.GetComponent<Renderer>();

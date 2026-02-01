@@ -237,18 +237,22 @@ public class GameManager : MonoBehaviour
         {
             if (Screen.height > Screen.width) // Portrait
             {
+                // Always Force Mute in Portrait (User Request: Pause everything including audios)
+                AudioListener.pause = true;
+
                 if (!isPaused)
                 {
                     PlayPause();
                     isOrientationPaused = true;
-                    AudioListener.pause = true; // FORCE MUTE ALL (including SFX/UI) when warning is shown
                 }
             }
             else // Landscape
             {
+                // Always Unmute Listener in Landscape (Game Pause handles individual sources)
+                AudioListener.pause = false;
+
                 if (isPaused && isOrientationPaused)
                 {
-                    AudioListener.pause = false; // UNMUTE
                     PlayPause();
                     isOrientationPaused = false;
                 }

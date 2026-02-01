@@ -38,16 +38,22 @@ public class Hazard : MonoBehaviour
     // Track particle system for toggling emission
     private ParticleSystem activeParticleSystem;
 
+    [Header("Collider Settings")]
+    [Tooltip("If true, the script will automatically resize the BoxCollider2D to the bottom of the sprite.")]
+    [SerializeField]
+    public bool autoConfigureCollider = false; // Default to false to allow manual collider setup in Prefabs
+
     private void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         audioSource = GetComponent<AudioSource>();
-
-        ConfigureCollider();
     }
 
     private void Start()
     {
+        // Ensure collider is configured if needed (moved from Awake to allow property setting)
+        ConfigureCollider();
+
         // Setup Audio
         if (audioSource == null)
         {
@@ -142,6 +148,8 @@ public class Hazard : MonoBehaviour
 
     private void ConfigureCollider()
     {
+        if (!autoConfigureCollider) return;
+
         // Auto-adjust collider to only cover the "Bait" (bottom of the sprite)
         SpriteRenderer sr = GetComponent<SpriteRenderer>();
         if (sr == null) return;
