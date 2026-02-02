@@ -20,10 +20,11 @@ public class GuiManager : Singleton<GuiManager>
     [Header("Double XP Status")]
     [SerializeField]
     private Sprite doubleXpSprite; // Drag the sprite here
-    [SerializeField]
-    private float blinkSpeed = 0.5f; // Time between blinks
     private GameObject doubleXpIconObj; 
-    private Coroutine doubleXpAnimCoroutine; 
+
+    [Header("Infection Status")]
+    private Sprite infectedStatusSprite;
+    private GameObject infectedIconObj;
 
     [Header("Growth Icons")]
     [SerializeField]
@@ -430,93 +431,323 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         #endif
     }
 
-    public void SetDoubleXpStatus(bool active)
+    private Image doubleXpProgressImg;
+    private Image infectedProgressImg;
+    private Sprite ringSprite;
+
+    // Generate a Ring Sprite at runtime for transparent background support
+    private Sprite CreateRingSprite(int resolution, float thicknessRatio)
     {
-        // 1. Create Icon if it doesn't exist yet (Lazy Initialization)
-        if (doubleXpIconObj == null && XpBar != null)
+        Texture2D texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Bilinear; // Smooth edges
+        texture.wrapMode = TextureWrapMode.Clamp;
+        
+        Color[] colors = new Color[resolution * resolution];
+        float center = resolution / 2f;
+        float outerRadius = resolution / 2f;
+        float innerRadius = outerRadius * (1f - thicknessRatio);
+        
+        float outerRSquared = outerRadius * outerRadius;
+        float innerRSquared = innerRadius * innerRadius;
+        
+        // Anti-aliasing width
+        float aaWidth = 1.5f;
+
+        for (int y = 0; y < resolution; y++)
         {
-             // Try to find existing one first (Hot-reload support)
-             Transform t = XpBar.transform.parent.Find("DoubleXpIcon");
-             if (t != null) doubleXpIconObj = t.gameObject;
-             
-             if (doubleXpIconObj == null && doubleXpSprite != null)
+            for (int x = 0; x < resolution; x++)
+            {
+                float dx = x - center + 0.5f;
+                float dy = y - center + 0.5f;
+                float distSquared = dx * dx + dy * dy;
+                float dist = Mathf.Sqrt(distSquared);
+                
+                // Logic:
+                // 1. Outside Outer Radius -> Transparent
+                // 2. Inside Inner Radius -> Transparent
+                // 3. Between -> White
+                // + Anti-aliasing at both edges
+
+                float alpha = 0f;
+
+                if (dist > outerRadius + aaWidth || dist < innerRadius - aaWidth)
+                {
+                    alpha = 0f;
+                }
+                else if (dist >= innerRadius && dist <= outerRadius)
+                {
+                    alpha = 1f;
+                }
+                else if (dist > outerRadius)
+                {
+                    // Outer Edge Fade
+                    alpha = Mathf.InverseLerp(outerRadius + aaWidth, outerRadius, dist);
+                }
+                else if (dist < innerRadius)
+                {
+                    // Inner Edge Fade
+                    alpha = Mathf.InverseLerp(innerRadius - aaWidth, innerRadius, dist);
+                }
+
+                colors[y * resolution + x] = new Color(1, 1, 1, alpha);
+            }
+        }
+
+        texture.SetPixels(colors);
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0, 0, resolution, resolution), new Vector2(0.5f, 0.5f));
+    }
+
+    private void SetupStatusIcon(ref GameObject containerObj, ref Image progressImg, string name, Sprite iconSprite)
+    {
+        // 1. Container
+        if (containerObj == null && XpBar != null)
+        {
+             // Try to find existing container
+             Transform t = XpBar.transform.parent.Find(name);
+             if (t != null) 
              {
-                // Create a new GameObject for the icon
-                doubleXpIconObj = new GameObject("DoubleXpIcon");
-                
-                // Parent it to the same container as the XP Bar (likely the XP Bar Background)
-                doubleXpIconObj.transform.SetParent(XpBar.transform.parent, false); 
-                
-                // Add Image component
-                Image img = doubleXpIconObj.AddComponent<Image>();
+                 // DESTROY EXISTING TO ENSURE FRESH STATE
+                 Destroy(t.gameObject); 
+                 containerObj = null;
+             }
+             
+             if (containerObj == null)
+             {
+                 containerObj = new GameObject(name);
+                 containerObj.transform.SetParent(XpBar.transform.parent, false);
              }
         }
-        
-        // 2. ALWAYS Update Settings (Size, Sprite, etc.) to ensure changes apply immediately
-        if (doubleXpIconObj != null)
-        {
-            Image img = doubleXpIconObj.GetComponent<Image>();
-            if (img != null)
-            {
-                img.sprite = doubleXpSprite;
-                img.preserveAspect = true;
-            }
 
-            RectTransform rt = doubleXpIconObj.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                // Anchor to Right-Middle of parent
-                rt.anchorMin = new Vector2(1, 0.5f); 
-                rt.anchorMax = new Vector2(1, 0.5f);
-                rt.pivot = new Vector2(0, 0.5f); // Pivot on Left Edge
-                
-                // Position: 5px to the right, Vertically centered (0)
-                rt.anchoredPosition = new Vector2(5, 0); 
-                
-                // Size: Micro (User request: make it a bit smaller -> 6x6)
-                rt.sizeDelta = new Vector2(6, 6); 
-            }
-        }
-
-        // 3. Toggle Visibility & Animation
-        if (doubleXpIconObj != null)
+        if (containerObj != null)
         {
-            doubleXpIconObj.SetActive(active);
+            // Ensure Container has NO Image
+            Image containerImg = containerObj.GetComponent<Image>();
+            if (containerImg != null) Destroy(containerImg);
+
+            // Container Layout
+            RectTransform rt = containerObj.GetComponent<RectTransform>();
+            if (rt == null) rt = containerObj.AddComponent<RectTransform>();
             
-            if (active)
+            // Anchor to RIGHT of parent
+            rt.anchorMin = new Vector2(1, 0.5f);
+            rt.anchorMax = new Vector2(1, 0.5f);
+            rt.pivot = new Vector2(0, 0.5f); // Pivot Left
+            rt.anchoredPosition = Vector2.zero;
+
+            // Layout Element (Reserve Space)
+            LayoutElement le = containerObj.GetComponent<LayoutElement>();
+            if (le == null) le = containerObj.AddComponent<LayoutElement>();
+            
+            le.ignoreLayout = false; 
+            le.minWidth = 12;
+            le.minHeight = 12;
+            le.preferredWidth = 12;
+            le.preferredHeight = 12;
+            le.flexibleWidth = 0;
+            le.flexibleHeight = 0;
+
+            // Ensure scale is correct
+            containerObj.transform.localScale = Vector3.one;
+
+            // Cleanup old "Ring" or "Icon" children if they exist from previous style
+            Transform ringT = containerObj.transform.Find("Ring");
+            if (ringT != null) Destroy(ringT.gameObject);
+            Transform oldIconT = containerObj.transform.Find("Icon");
+            if (oldIconT != null) Destroy(oldIconT.gameObject);
+
+            // 2. Background Icon (Ghost/Silhouette)
+            Transform bgT = containerObj.transform.Find("Background");
+            GameObject bgObj;
+            if (bgT == null)
             {
-                // Start Animation
-                if (doubleXpAnimCoroutine != null) StopCoroutine(doubleXpAnimCoroutine);
-                doubleXpAnimCoroutine = StartCoroutine(AnimateDoubleXpIcon());
+                bgObj = new GameObject("Background");
+                bgObj.transform.SetParent(containerObj.transform, false);
             }
-            else
+            else bgObj = bgT.gameObject;
+
+            Image bgImg = bgObj.GetComponent<Image>();
+            if (bgImg == null) bgImg = bgObj.AddComponent<Image>();
+            bgImg.sprite = iconSprite;
+            bgImg.preserveAspect = true;
+            bgImg.color = new Color(0, 0, 0, 0.3f); // Subtle dark silhouette
+            bgImg.raycastTarget = false;
+
+            RectTransform bgRt = bgObj.GetComponent<RectTransform>();
+            bgRt.anchorMin = Vector2.zero;
+            bgRt.anchorMax = Vector2.one;
+            bgRt.sizeDelta = Vector2.zero; // Stretch to fill container
+
+            // 3. Foreground Icon (Filled Progress)
+            Transform fgT = containerObj.transform.Find("Foreground");
+            GameObject fgObj;
+            if (fgT == null)
             {
-                // Stop Animation
-                if (doubleXpAnimCoroutine != null)
-                {
-                    StopCoroutine(doubleXpAnimCoroutine);
-                    doubleXpAnimCoroutine = null;
-                }
-                // Reset Color
-                Image img = doubleXpIconObj.GetComponent<Image>();
-                if (img != null) img.color = Color.white;
+                fgObj = new GameObject("Foreground");
+                fgObj.transform.SetParent(containerObj.transform, false);
             }
+            else fgObj = fgT.gameObject;
+
+            progressImg = fgObj.GetComponent<Image>();
+            if (progressImg == null) progressImg = fgObj.AddComponent<Image>();
+            progressImg.sprite = iconSprite;
+            progressImg.preserveAspect = true;
+            progressImg.type = Image.Type.Filled;
+            progressImg.fillMethod = Image.FillMethod.Vertical;
+            progressImg.fillOrigin = (int)Image.OriginVertical.Bottom;
+            progressImg.color = Color.white;
+            progressImg.raycastTarget = false;
+
+            RectTransform fgRt = fgObj.GetComponent<RectTransform>();
+            fgRt.anchorMin = Vector2.zero;
+            fgRt.anchorMax = Vector2.one;
+            fgRt.sizeDelta = Vector2.zero; // Stretch to fill container
+            
+            // Ensure Foreground is on top
+            fgObj.transform.SetAsLastSibling();
         }
     }
 
-    private IEnumerator AnimateDoubleXpIcon()
+    public void SetDoubleXpStatus(bool active)
     {
-        Image img = doubleXpIconObj.GetComponent<Image>();
-        if (img == null) yield break;
-
-        while (true)
+        // Force reset reference if active to ensure regeneration
+        if (active && doubleXpIconObj != null) 
         {
-            // Blink Logic: Toggle Alpha
-            img.color = new Color(1, 1, 1, 0.2f); // Dim
-            yield return new WaitForSeconds(blinkSpeed);
-            img.color = Color.white; // Bright
-            yield return new WaitForSeconds(blinkSpeed);
+            Destroy(doubleXpIconObj);
+            doubleXpIconObj = null;
         }
+
+        if (active)
+        {
+            SetupStatusIcon(ref doubleXpIconObj, ref doubleXpProgressImg, "DoubleXpIcon", doubleXpSprite);
+            if (doubleXpIconObj != null) doubleXpIconObj.SetActive(true);
+        }
+        else
+        {
+            if (doubleXpIconObj != null) doubleXpIconObj.SetActive(false);
+        }
+        
+        // Update Layout
+        UpdateStatusIconsLayout();
+    }
+    
+    public void UpdateDoubleXpProgress(float percent)
+    {
+        if (doubleXpProgressImg != null)
+        {
+            doubleXpProgressImg.fillAmount = percent;
+        }
+    }
+
+    // Removed Coroutine (AnimateDoubleXpIcon)
+
+    public void SetInfectedStatus(bool active)
+    {
+        if (infectedStatusSprite == null) infectedStatusSprite = Resources.Load<Sprite>("infected_icon");
+        
+        // Force reset reference if active to ensure regeneration
+        if (active && infectedIconObj != null) 
+        {
+            Destroy(infectedIconObj);
+            infectedIconObj = null;
+        }
+
+        if (active)
+        {
+            SetupStatusIcon(ref infectedIconObj, ref infectedProgressImg, "InfectedIcon", infectedStatusSprite);
+            if (infectedIconObj != null) infectedIconObj.SetActive(true);
+        }
+        else
+        {
+             if (infectedIconObj != null) infectedIconObj.SetActive(false);
+        }
+
+        // Update Layout
+        UpdateStatusIconsLayout();
+    }
+    
+    public void UpdateInfectedProgress(float percent)
+    {
+        if (infectedProgressImg != null)
+        {
+            infectedProgressImg.fillAmount = percent;
+        }
+    }
+
+    // Removed Coroutine (AnimateInfectedIcon)
+
+    private void UpdateStatusIconsLayout()
+    {
+        if (XpBar == null) return;
+
+        RectTransform barParent = XpBar.transform.parent as RectTransform;
+        if (barParent == null) return;
+
+        // 0. CLEANUP: Remove any LayoutGroup from the Parent (It fights our manual control)
+        HorizontalLayoutGroup hlg = barParent.GetComponent<HorizontalLayoutGroup>();
+        if (hlg != null) Destroy(hlg);
+        
+        ContentSizeFitter csf = barParent.GetComponent<ContentSizeFitter>();
+        if (csf != null) Destroy(csf);
+
+        // 1. Identify active icons
+        List<GameObject> activeIcons = new List<GameObject>();
+        if (doubleXpIconObj != null && doubleXpIconObj.activeSelf) activeIcons.Add(doubleXpIconObj);
+        if (infectedIconObj != null && infectedIconObj.activeSelf) activeIcons.Add(infectedIconObj);
+
+        // 2. Determine Size dynamically based on Bar Height
+        // This ensures "similar size to the bar"
+        float parentHeight = barParent.rect.height;
+        float iconSize = (parentHeight > 0) ? parentHeight : 12f; // Fallback to 12 if height invalid
+        
+        // Constants
+        const float GAP = 8f; // Gap between Bar and First Icon
+        const float ICON_SPACING = 5f; // Gap between Icons
+
+        // 3. RESET XP BAR & PARENT (Decouple them from Indicators)
+        // Reset XP Bar to fill the parent normally
+        XpBar.rectTransform.anchorMin = Vector2.zero;
+        XpBar.rectTransform.anchorMax = Vector2.one;
+        XpBar.rectTransform.offsetMin = Vector2.zero;
+        XpBar.rectTransform.offsetMax = Vector2.zero;
+
+        // Stop forcing LayoutElement properties on Parent
+        LayoutElement le = barParent.GetComponent<LayoutElement>();
+        if (le != null)
+        {
+             le.ignoreLayout = false;
+             le.minWidth = -1;
+             le.preferredWidth = -1;
+             le.flexibleWidth = -1;
+        }
+
+        // 4. Position Icons OUTSIDE the Bar (To the Right)
+        float currentX = GAP; 
+
+        foreach (var icon in activeIcons)
+        {
+             RectTransform rt = icon.GetComponent<RectTransform>();
+             
+             // Set Size to match Bar Height
+             rt.sizeDelta = new Vector2(iconSize, iconSize);
+
+             // Anchor: Right Center
+             rt.anchorMin = new Vector2(1, 0.5f);
+             rt.anchorMax = new Vector2(1, 0.5f);
+             rt.pivot = new Vector2(0, 0.5f); // Pivot Left
+             
+             // Position: Positive X is "Outside" to the right
+             rt.anchoredPosition = new Vector2(currentX, 0);
+             
+             // Ensure scale is correct
+             rt.localScale = Vector3.one;
+             
+             currentX += iconSize + ICON_SPACING;
+        }
+
+        // 5. Force layout rebuild (for parent container mostly)
+        LayoutRebuilder.ForceRebuildLayoutImmediate(barParent);
     }
 
     private void Update()

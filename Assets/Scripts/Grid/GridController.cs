@@ -52,6 +52,20 @@ public class GridController : MonoBehaviour
     private List<GameObject> activeHazards = new List<GameObject>();
     private bool isSpawningHazards = false; // Flag to prevent multiple coroutines
 
+    [Header("Parasite Hazard Settings")]
+    [SerializeField]
+    private Sprite parasiteSprite;
+    [SerializeField]
+    private Sprite parasiteAttachedSprite;
+    [SerializeField]
+    private float parasiteChance = 0.05f; 
+    [Tooltip("If true, replaces Player Sprite. If false, adds Overlay.")]
+    [SerializeField]
+    private bool parasiteSwapsSprite = true; 
+    [Tooltip("Scale modifier for the visual (Overlay only).")]
+    [SerializeField]
+    private float parasiteScale = 1f;
+
     [Header("Shark Hazard Settings")]
     [SerializeField]
     private GameObject sharkPrefab;
@@ -185,6 +199,9 @@ public class GridController : MonoBehaviour
                 }
             }
 
+            // 1.8 Parasite Hazard (Mind Control) - MOVED TO FISH INFECTION LOGIC
+            // We no longer spawn a separate flying bug. Instead, we infect random fish.
+
             // 2. Fish Count Limit Check
             // OPTIMIZATION: Use static list from Fish class
             
@@ -264,7 +281,22 @@ public class GridController : MonoBehaviour
             
             // SPECIAL: Check for Golden Fish Spawn (Rare!)
             // Chance: 5% (0.05) - Game Ready Setting
-            if (Random.value < 0.05f)
+            // User Request: "the chances of golden fish at the late game is higer"
+            float goldenChance = 0.05f;
+            if (playerLevel >= 5)
+            {
+                goldenChance = 0.20f; // 20% at End Game (Level 5+)
+            }
+            else if (playerLevel >= 4)
+            {
+                goldenChance = 0.15f; // 15% at Late Game (Level 4)
+            }
+            else if (playerLevel >= 3)
+            {
+                goldenChance = 0.08f; // 8% at Mid Game
+            }
+
+            if (Random.value < goldenChance)
             {
                 // Spawn Golden Fish!
                 Fish goldenPrefab = null;
@@ -825,6 +857,16 @@ public class GridController : MonoBehaviour
     private void OrientFish(Fish fish, Vector2 spawnPos, Vector2 targetPos)
     {
         if (fish == null) return;
+
+        // INFECTION LOGIC (New Parasite System)
+        // Chance to spawn with a parasite attached
+        // Only if NOT golden, NOT Level 1 or 2, and chance is met
+        if (!fish.IsGoldenFish && fish.Level > 2 && Random.value < parasiteChance)
+        {
+            // We attach the 'parasiteSprite' (the bug) to the fish visual
+            // We pass 'parasiteAttachedSprite' (the head/swap) for when the player eats it
+            fish.SetInfected(parasiteSprite, parasiteAttachedSprite, parasiteSwapsSprite, parasiteScale);
+        }
 
         // Initialize Fish Particles (User Request: All fish have eating bubbles)
         if (player != null)

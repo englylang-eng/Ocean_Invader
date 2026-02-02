@@ -196,6 +196,13 @@ public class FishAI : MonoBehaviour
             }
         }
 
+        // REALISM TWEAK: Horizontal Bias
+        // Fish naturally swim horizontally. We dampen vertical movement slightly in Wander state.
+        if (currentState == State.Wander)
+        {
+            targetDir.y *= 0.6f; // Flatten vertical component
+        }
+        
         // Normalize once after all forces are applied
         targetDir = targetDir.normalized;
 
@@ -203,14 +210,12 @@ public class FishAI : MonoBehaviour
         if (targetDir == Vector2.zero) targetDir = currentDirection;
 
         // 4. Rotate Current Direction towards Target Direction
-        // Use RotateTowards for reliable constant turning, or Slerp with a larger factor
         if (targetDir != Vector2.zero)
         {
-            // Increase smoothing factor or use RotateTowards to prevent micro-jitter
-            // Original: turnSpeed * 0.05f * Time.fixedDeltaTime (~0.2 factor)
-            // Let's use a slightly more robust interpolation
-            float smoothFactor = 5f * Time.fixedDeltaTime; 
-            currentDirection = Vector3.Slerp(currentDirection, targetDir, smoothFactor).normalized;
+            // FIX: Use RotateTowards with actual turnSpeed to prevent snapping/jittering
+            // "turn left right left right crazily" fix.
+            float step = turnSpeed * Mathf.Deg2Rad * Time.fixedDeltaTime;
+            currentDirection = Vector3.RotateTowards(currentDirection, targetDir, step, 0f).normalized;
         }
         
         // Safety check
@@ -224,25 +229,31 @@ public class FishAI : MonoBehaviour
 
         rb.linearVelocity = currentDirection * currentSpeed;
 
-        // 6. Physics Rotation (Smoothed)
-        float targetAngle = Mathf.Atan2(currentDirection.y, currentDirection.x) * Mathf.Rad2Deg;
-        // Smooth rotation using LerpAngle to prevent snapping
-        float rotationSmoothSpeed = 10f; 
-        float smoothedAngle = Mathf.LerpAngle(rb.rotation, targetAngle, rotationSmoothSpeed * Time.fixedDeltaTime);
-        rb.rotation = smoothedAngle;
+        // 6. Physics Rotation (Standard 2D Flipping)
+        // User Request: "make it swim normamlly not special swim shit"
+        // Standard behavior: No Rotation, Flip X based on direction.
+        
+        rb.rotation = 0f;
 
-        // Flip Y if moving left (with hysteresis) to ensure fish is right-side up
+        // Flip X if moving left
         Vector3 scale = transform.localScale;
         
-        // Increase threshold to prevent jitter when moving vertically (Deadzone)
-        // 0.3f corresponds to roughly 72 degrees. 
-        // If swimming steeper than that (near vertical), we don't flip.
-        float flipThreshold = 0.3f; 
+        // FIX: Increased Deadzone to prevent rapid flipping (was 0.1f)
+        float flipThreshold = 0.4f; 
 
         if (currentDirection.x < -flipThreshold)
-            scale.y = -Mathf.Abs(scale.y);
+        {
+            // Moving Left -> Scale X should be negative (assuming default sprite faces right)
+            scale.x = -Mathf.Abs(scale.x);
+        }
         else if (currentDirection.x > flipThreshold)
-            scale.y = Mathf.Abs(scale.y);
+        {
+            // Moving Right -> Scale X should be positive
+            scale.x = Mathf.Abs(scale.x);
+        }
+        
+        // Ensure Y is always positive (Upright)
+        scale.y = Mathf.Abs(scale.y);
             
         transform.localScale = scale;
     }

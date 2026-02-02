@@ -89,6 +89,12 @@ public class PlayerController : MonoBehaviour
 
     private int score = 0;
 
+    //====================| Mind Control Hazard
+    private bool isMindControlled = false;
+    private float mindControlTimer = 0f;
+    private GameObject mindControlVisual;
+    private Sprite mindControlSwapSprite; // Track the sprite we want to force
+
     //====================| Control Input
     //Direction for keyboard controls
     // Boost fields
@@ -103,6 +109,8 @@ public class PlayerController : MonoBehaviour
     // XP Multiplier (Golden Fish Bonus)
     private float xpMultiplier = 1f;
     private float xpMultiplierTimer = 0f;
+    private float xpMultiplierTotalDuration = 1f;
+    private float mindControlTotalDuration = 1f;
     
     // Visuals
     private float currentBaseScale = 1f;
@@ -827,6 +835,8 @@ public class PlayerController : MonoBehaviour
         if (xpMultiplierTimer > 0)
         {
             xpMultiplierTimer -= Time.deltaTime;
+            GuiManager.instance.UpdateDoubleXpProgress(xpMultiplierTimer / xpMultiplierTotalDuration);
+
             if (xpMultiplierTimer <= 0)
             {
                 xpMultiplier = 1f;
@@ -851,11 +861,37 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+        // Mind Control Timer
+    if (isMindControlled)
+    {
+        mindControlTimer -= Time.deltaTime;
+        GuiManager.instance.UpdateInfectedProgress(mindControlTimer / mindControlTotalDuration);
+        
+        // Ensure Visual Persistence
+        // If we are using sprite swap, we need to enforce the sprite
+        // because other things (like BiteAnimation) might try to reset it.
+        if (spriteRenderer != null && spriteRenderer.sprite != mindControlSwapSprite && mindControlSwapSprite != null)
+        {
+             // Force it back
+             spriteRenderer.sprite = mindControlSwapSprite;
+        }
+
+        if (mindControlTimer <= 0)
+        {
+            RemoveMindControl();
+        }
+    }
+
         //Movement
         if( !isPaused && isAlive )
         {
             // Use mouse-based controls (original game style). Left click gives a short speed boost.
             HandleInput();
+            
+            if (isMindControlled)
+            {
+                _moveInput = -_moveInput;
+            }
         }
         
         //Level Management
@@ -930,6 +966,14 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        // Check for Parasite Infection
+        if (fish.IsInfected)
+        {
+            // Transfer parasite to player
+            float duration = Random.Range(5f, 10f); // Or use constants
+            ApplyMindControl(duration, fish.PlayerAttachmentSprite, fish.PlayerSwap, fish.PlayerScale);
+        }
+
         // Apply Multiplier
         int finalXp = Mathf.RoundToInt(fish.Xp * xpMultiplier);
 
@@ -952,13 +996,94 @@ public class PlayerController : MonoBehaviour
     {
         xpMultiplier = multiplier;
         xpMultiplierTimer = duration;
+        xpMultiplierTotalDuration = duration;
         
         // Notify UI to show Double XP Icon
         GuiManager.instance.SetDoubleXpStatus(true);
         
         // Limon Font Mapping: x -> ខ, * -> 8.
         // Solution: Use '2dg' which renders as '2ដង' (2 Times) in Khmer Limon.
-        GuiManager.instance.ShowFloatingText(transform.position, "RtImas 2dg BinÞú ¡", new Color(1f, 0.8f, 0f, 1f));
+        // REMOVED: Duplicate text call here, as it's already handled in Eat()
+        // GuiManager.instance.ShowFloatingText(transform.position, "RtImas 2dg BinÞú ¡", new Color(1f, 0.8f, 0f, 1f));
+    }
+
+    public void ApplyMindControl(float duration, Sprite visualSprite, bool useSpriteSwap = false, float scaleModifier = 1f)
+    {
+        if (!isAlive) return;
+        
+        isMindControlled = true;
+        mindControlTimer = duration;
+        mindControlTotalDuration = duration;
+        
+        // UI Indicator
+        GuiManager.instance.SetInfectedStatus(true);
+        
+        if (useSpriteSwap)
+        {
+            // SWAP METHOD
+            if (spriteRenderer != null)
+            {
+                mindControlSwapSprite = visualSprite; // Store it for enforcement in Update()
+                spriteRenderer.sprite = visualSprite;
+            }
+        }
+        else
+        {
+            // OVERLAY METHOD: Useful if the sprite is just "The Parasite Bug"
+            // Visual
+            if (mindControlVisual == null)
+            {
+                mindControlVisual = new GameObject("ParasiteVisual");
+                if (playerGraphics != null)
+                    mindControlVisual.transform.SetParent(playerGraphics);
+                else
+                    mindControlVisual.transform.SetParent(transform);
+
+                // Offset: 0.1, 0.3 is rough guess for head.
+                mindControlVisual.transform.localPosition = new Vector3(0.1f, 0.3f, 0); 
+                mindControlVisual.transform.localRotation = Quaternion.identity;
+                
+                // Fix Scale: Apply modifier
+                mindControlVisual.transform.localScale = Vector3.one * scaleModifier;
+                
+                var sr = mindControlVisual.AddComponent<SpriteRenderer>();
+                sr.sprite = visualSprite;
+                sr.sortingLayerName = "Foreground"; 
+                sr.sortingOrder = 10;
+            }
+            else
+            {
+                mindControlVisual.SetActive(true);
+                mindControlVisual.transform.localScale = Vector3.one * scaleModifier;
+                var sr = mindControlVisual.GetComponent<SpriteRenderer>();
+                if (sr != null) sr.sprite = visualSprite;
+            }
+        }
+        
+        // Optional: Play panic sound?
+        // GuiManager.instance.ShowFloatingText(transform.position, "PANIC!", Color.red);
+    }
+
+    private void RemoveMindControl()
+    {
+        isMindControlled = false;
+        mindControlSwapSprite = null; // Clear the forced sprite
+        
+        // UI Indicator
+        GuiManager.instance.SetInfectedStatus(false);
+        
+        // Restore Overlay
+        if (mindControlVisual != null)
+        {
+            mindControlVisual.SetActive(false);
+        }
+        
+        // Restore Sprite Swap
+        if (spriteRenderer != null && idleSprite != null)
+        {
+            // Restore to idle (or let animation handle it)
+            spriteRenderer.sprite = idleSprite;
+        }
     }
 
     private void LevelUp()

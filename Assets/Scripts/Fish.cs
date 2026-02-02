@@ -275,12 +275,95 @@ public class Fish : MonoBehaviour
         }
         else
         {
-            // Fallback to standard circle if no bubble material
-            renderer.material = new Material(Shader.Find("Sprites/Default"));
+            // Fallback to generated star texture for a "Shiny/Rare" look
+            Material mat = new Material(Shader.Find("Sprites/Default"));
+            mat.mainTexture = GetStarTexture();
+            renderer.material = mat;
         }
         
         renderer.sortingLayerName = "Foreground";
         renderer.sortingOrder = 1;
+
+        // Apply "Twinkle" behavior
+        var sizeOverLifetime = goldenParticles.sizeOverLifetime;
+        sizeOverLifetime.enabled = true;
+        AnimationCurve curve = new AnimationCurve();
+        curve.AddKey(0.0f, 0.0f);
+        curve.AddKey(0.5f, 1.0f); // Peak at middle
+        curve.AddKey(1.0f, 0.0f);
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1.0f, curve);
+
+        var rotOverLifetime = goldenParticles.rotationOverLifetime;
+        rotOverLifetime.enabled = true;
+        rotOverLifetime.z = new ParticleSystem.MinMaxCurve(-45f, 45f);
+    }
+
+    // Helper to generate a runtime star/sparkle texture
+    private static Texture2D cachedStarTexture;
+    private Texture2D GetStarTexture()
+    {
+        if (cachedStarTexture != null) return cachedStarTexture;
+
+        int size = 64;
+        cachedStarTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        
+        Color[] colors = new Color[size * size];
+        Vector2 center = new Vector2(size / 2f, size / 2f);
+        float centerX = size / 2f;
+        float centerY = size / 2f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Create a 4-point star shape (Diamond + Cross)
+                float dx = Mathf.Abs(x - centerX);
+                float dy = Mathf.Abs(y - centerY);
+                
+                // Distance from center (Standard radial glow)
+                float dist = Vector2.Distance(new Vector2(x,y), center);
+                float glow = Mathf.Clamp01(1.0f - (dist / (size/2f)));
+
+                // Cross shape (Spikes)
+                float spike = Mathf.Max(0, 1.0f - (dx / (size/8f))) * Mathf.Max(0, 1.0f - (dy / (size/2.5f))) // Vertical
+                            + Mathf.Max(0, 1.0f - (dy / (size/8f))) * Mathf.Max(0, 1.0f - (dx / (size/2.5f))); // Horizontal
+
+                float alpha = Mathf.Clamp01(glow * 0.5f + spike);
+                colors[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        
+        cachedStarTexture.SetPixels(colors);
+        cachedStarTexture.Apply();
+        return cachedStarTexture;
+    }
+
+    // Legacy Circle texture (kept if needed, but unused now)
+    private static Texture2D cachedCircleTexture;
+    private Texture2D GetCircleTexture()
+    {
+        if (cachedCircleTexture != null) return cachedCircleTexture;
+
+        int size = 64;
+        cachedCircleTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        
+        Color[] colors = new Color[size * size];
+        Vector2 center = new Vector2(size / 2f, size / 2f);
+        float radius = (size / 2f) - 2f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), center);
+                float alpha = Mathf.Clamp01(radius - dist); // Soft edge
+                colors[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        
+        cachedCircleTexture.SetPixels(colors);
+        cachedCircleTexture.Apply();
+        return cachedCircleTexture;
     }
 
     private void UpdateCollision()
@@ -498,15 +581,18 @@ public class Fish : MonoBehaviour
             rb.constraints = RigidbodyConstraints2D.FreezeRotation;
             rb.interpolation = RigidbodyInterpolation2D.Interpolate; // Important for smooth FishAI movement
 
-            // Use FishAI (Do NOT destroy it)
+            // Use FishAI (Add if missing)
             var ai = GetComponent<FishAI>();
+            if (ai == null) ai = gameObject.AddComponent<FishAI>();
+            
             if (ai != null)
             {
                 ai.enabled = true; // Ensure it's enabled
                 // Adjust stats for Golden Fish
-                ai.moveSpeed = 5f; // Match the requested speed (was 4f default)
-                ai.turnSpeed = 250f; // Snappier turning (was 200f default)
+                ai.moveSpeed = 3.5f; // Calm, normal speed
+                ai.turnSpeed = 120f; // Relaxed turning
                 ai.stayOnScreen = true; // Enable boundary logic
+                ai.fleeRadius = 0f; // DISABLE FLEEING (User Request: "completely remove the fleeing")
             }
 
             // Remove FishMovement if it exists (Legacy cleanup)
@@ -625,23 +711,48 @@ public class Fish : MonoBehaviour
             if (otherFish == this) return;
 
             // FOOD CHAIN LOGIC
-            // "If they ever to collide the bigger level fish eat the smaller level fish"
-            
+            // I am bigger. I eat the smaller fish.
             if (this.level > otherFish.Level)
             {
-                // I am bigger. I eat the smaller fish.
-                // We kill the other fish.
-                PlayEatEffect(); // Trigger eating particles
                 otherFish.Die();
-
-                // Optional: We could play an eat sound or effect here if we had references.
-                // For now, the logic is the priority.
+                PlayEatEffect();
             }
-            // If I am smaller (this.level < otherFish.Level), I do nothing.
-            // The other fish's OnTriggerEnter2D will handle eating me.
-            
-            // If levels are equal, they ignore each other (peaceful co-existence / schooling).
         }
     }
+
+    #region Infection Logic
+    public bool IsInfected { get; private set; }
+    public Sprite PlayerAttachmentSprite { get; private set; }
+    public bool PlayerSwap { get; private set; }
+    public float PlayerScale { get; private set; } = 1f;
+
+    private GameObject parasiteVisual;
+
+    public void SetInfected(Sprite visual, Sprite attachment, bool swap, float scale)
+    {
+        if (IsInfected) return; // Already infected
+
+        IsInfected = true;
+        PlayerAttachmentSprite = attachment;
+        PlayerSwap = swap;
+        PlayerScale = scale;
+
+        // Add visual indicator to the fish
+        if (visual != null)
+        {
+            parasiteVisual = new GameObject("Parasite");
+            parasiteVisual.transform.SetParent(gfx != null ? gfx : transform);
+            // USER REQUEST: "way way bigger" and "on the HEAD"
+            // Assuming fish faces Right (+X), Head is roughly +0.5 X.
+            parasiteVisual.transform.localPosition = new Vector3(0.5f, 0.1f, 0); 
+            parasiteVisual.transform.localRotation = Quaternion.identity;
+            parasiteVisual.transform.localScale = Vector3.one * 3.5f; // Way way bigger (was 1.5f)
+
+            var sr = parasiteVisual.AddComponent<SpriteRenderer>();
+            sr.sprite = visual;
+            sr.sortingOrder = 10; // On top
+        }
+    }
+    #endregion
 }
 

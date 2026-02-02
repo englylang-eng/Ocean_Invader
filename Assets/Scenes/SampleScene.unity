@@ -1760,6 +1760,12 @@ MonoBehaviour:
   hazardScale: 0.8
   hazardSound: {fileID: 8300000, guid: e91d0d74377f1544693e17bb4c26e462, type: 3}
   hazardBubblePrefab: {fileID: 0}
+  parasiteSprite: {fileID: 21300000, guid: c87a65904c0785d4da10095930e2ca06, type: 3}
+  parasiteAttachedSprite: {fileID: 21300000, guid: 228d42c9d9425a34996706a091cb9ff1,
+    type: 3}
+  parasiteChance: 0.2
+  parasiteSwapsSprite: 1
+  parasiteScale: 1
   sharkPrefab: {fileID: 697155302020639099, guid: e349be2bb26759d4396d9adf38d476cc,
     type: 3}
   sharkSprite: {fileID: 21300000, guid: 948b1361ead89fc47988ed19c176ea80, type: 3}
