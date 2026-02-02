@@ -923,6 +923,9 @@ public class PlayerController : MonoBehaviour
             // Play Special Sound
             if (audioSource != null && boostStartClip != null) audioSource.PlayOneShot(boostStartClip, 1.2f);
             
+            // Show Special Text for Golden Fish (Khmer Font Mapping: RtImas)
+            GuiManager.instance.ShowFloatingText(fish.transform.position, "RtImas", new Color(1f, 0.8f, 0f, 1f));
+
             // Golden fish itself gives 0 XP, just the buff
             return;
         }

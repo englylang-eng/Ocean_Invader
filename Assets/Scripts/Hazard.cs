@@ -137,12 +137,25 @@ public class Hazard : MonoBehaviour
     private void SetupParticlePosition(GameObject particleObj)
     {
         // Position at the "Bait" (Bottom of sprite)
+
+        // Priority 1: Use Collider Center (The "Bait" hitbox)
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null)
+        {
+            particleObj.transform.localPosition = col.offset;
+            return;
+        }
+
+        // Priority 2: Use Sprite Bottom (Robust for Top or Center pivots)
         if (spriteRenderer != null)
         {
-            float spriteHeight = spriteRenderer.size.y;
-            // Bait is roughly at the bottom center.
-            // Offset: -(Height / 2)
-            particleObj.transform.localPosition = new Vector3(0, -(spriteHeight / 2f) + 0.2f, 0);
+            // Calculate local Y of the bottom edge
+            // World Bottom = Bounds Min Y
+            float worldBottomY = spriteRenderer.bounds.min.y;
+            float localBottomY = worldBottomY - transform.position.y;
+            
+            // Add slight offset (0.2f) so it's not barely on the edge
+            particleObj.transform.localPosition = new Vector3(0, localBottomY + 0.2f, 0);
         }
     }
 
