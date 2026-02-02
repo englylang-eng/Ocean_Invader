@@ -207,6 +207,7 @@ public class Fish : MonoBehaviour
                 cachedPlayerTransform = cachedGameManager.playerGameObject.transform;
         }
 
+        // Ensure collider is set up and cache it immediately
         UpdateCollision();
 
         // Initialize Bobbing
@@ -223,7 +224,9 @@ public class Fish : MonoBehaviour
         }
 
         // Setup Manual Collision Check (Bypasses Physics Matrix "Enemy vs Enemy" ignore)
-        myCollider = GetComponent<Collider2D>();
+        // CRITICAL FIX: Explicitly get CapsuleCollider2D to avoid grabbing a destroyed collider
+        myCollider = GetComponent<CapsuleCollider2D>();
+        
         contactFilter = new ContactFilter2D();
         contactFilter.useTriggers = true; 
         contactFilter.useLayerMask = false; // Check against everything, then filter by Component
@@ -368,7 +371,12 @@ public class Fish : MonoBehaviour
 
     private void CheckFoodChain()
     {
-        if (myCollider == null) return;
+        if (myCollider == null) 
+        {
+             // Try to recover collider if lost
+             myCollider = GetComponent<CapsuleCollider2D>();
+             if (myCollider == null) return;
+        }
 
         // OverlapCollider finds anything touching 'myCollider' regardless of Physics Matrix (if configured right)
         // It uses the actual collider shape (Capsule) which is better than OverlapCircle.

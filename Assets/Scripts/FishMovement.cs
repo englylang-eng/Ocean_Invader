@@ -115,6 +115,11 @@ public class FishMovement : MonoBehaviour
         {
             // Wander
             targetDir = GetWanderDirection();
+            
+            // Horizontal Bias: Dampen vertical wander to keep fish swimming mostly horizontally
+            // This mimics "normal" fish behavior better than full 360 freedom
+            targetDir.y *= 0.3f; 
+            targetDir = targetDir.normalized;
         }
 
         // Obstacle Avoidance
@@ -210,12 +215,12 @@ public class FishMovement : MonoBehaviour
         if (Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask))
         {
             // Check if it's food (Basic check)
-            RaycastHit2D hit = Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask);
-            if (hit.collider != null && hit.collider.GetComponent<Fish>() != null)
+            RaycastHit2D hitLeft = Physics2D.Raycast(transform.position, leftDir, avoidDistance * 0.7f, obstacleMask);
+            if (hitLeft.collider != null && hitLeft.collider.GetComponent<Fish>() != null)
             {
                  // If it's a fish, ignore it for now (simplified vs FishAI)
                  // Or better, check level if we can access it
-                 Fish f = hit.collider.GetComponent<Fish>();
+                 Fish f = hitLeft.collider.GetComponent<Fish>();
                  if (fishData != null && fishData.Level > f.Level) { /* Do nothing, don't turn */ }
                  else return Quaternion.Euler(0, 0, -45) * currentDirection;
             }
@@ -228,10 +233,10 @@ public class FishMovement : MonoBehaviour
         if (Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask))
         {
              // Check if it's food
-            RaycastHit2D hit = Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask);
-            if (hit.collider != null && hit.collider.GetComponent<Fish>() != null)
+            RaycastHit2D hitRight = Physics2D.Raycast(transform.position, rightDir, avoidDistance * 0.7f, obstacleMask);
+            if (hitRight.collider != null && hitRight.collider.GetComponent<Fish>() != null)
             {
-                 Fish f = hit.collider.GetComponent<Fish>();
+                 Fish f = hitRight.collider.GetComponent<Fish>();
                  if (fishData != null && fishData.Level > f.Level) { /* Do nothing */ }
                  else return Quaternion.Euler(0, 0, 45) * currentDirection;
             }
