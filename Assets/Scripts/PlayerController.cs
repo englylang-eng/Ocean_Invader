@@ -830,7 +830,7 @@ public class PlayerController : MonoBehaviour
             if (xpMultiplierTimer <= 0)
             {
                 xpMultiplier = 1f;
-                GuiManager.instance.ShowFloatingText(transform.position, "BinÞú Fmµta", Color.white);
+                // REMOVED TEXT: GuiManager.instance.ShowFloatingText(transform.position, "BinÞú Fmµta", Color.white);
                 
                 // Hide Double XP Icon
                 GuiManager.instance.SetDoubleXpStatus(false);

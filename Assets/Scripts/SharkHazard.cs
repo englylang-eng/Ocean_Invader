@@ -7,7 +7,7 @@ public class SharkHazard : MonoBehaviour
 {
     [Header("Shark Settings")]
     [SerializeField]
-    private float moveSpeed = 12f;
+    private float moveSpeed = 16f; // User request: Make shark faster (was 12f)
     [SerializeField]
     private float lifeTimeAfterPass = 5.0f;
 

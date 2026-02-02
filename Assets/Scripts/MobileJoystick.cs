@@ -63,15 +63,15 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
             // AUTO-FIX: Enforce standard mobile sizing and positioning
         // Check size OR position mismatch
         bool sizeMismatch = (background != null && Mathf.Abs(background.sizeDelta.x - 250) > 1);
-        bool posMismatch = (background != null && Mathf.Abs(background.anchoredPosition.y - 450) > 1);
+        bool posMismatch = (background != null && Mathf.Abs(background.anchoredPosition.y - 400) > 1);
 
         if (sizeMismatch || posMismatch)
         {
             if (background != null)
             {
                 background.sizeDelta = new Vector2(250, 250);
-                // Fix: Move up to avoid safe area/home bar issues (User Request: Move up more -> 450)
-                background.anchoredPosition = new Vector2(200, 450); 
+                // Fix: Move up slightly (User Request: 380 -> 400)
+                background.anchoredPosition = new Vector2(200, 400); 
                 
                 if (handle != null)
                 {
@@ -81,7 +81,7 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
                 // Improve responsiveness: Reduce travel distance
                 handleRange = 0.5f; 
                 
-                Debug.Log("MobileJoystick: Auto-upgraded size and positioning settings (Size: 250, Y: 450).");
+                Debug.Log("MobileJoystick: Auto-upgraded size and positioning settings (Size: 250, Y: 400).");
             }
         }
         }

@@ -260,7 +260,25 @@ public class Fish : MonoBehaviour
         shape.radius = 0.3f;
 
         var renderer = pObj.GetComponent<ParticleSystemRenderer>();
-        renderer.material = new Material(Shader.Find("Sprites/Default"));
+        // Fix: Use the bubble texture/material if available to look like bubbles, otherwise default sprite
+        if (bubbleMaterial != null)
+        {
+            renderer.material = bubbleMaterial;
+            // Ensure texture sheet animation works if using bubble texture
+            var texSheet = goldenParticles.textureSheetAnimation;
+            texSheet.enabled = true;
+            texSheet.mode = ParticleSystemAnimationMode.Grid;
+            texSheet.numTilesX = 8; // Standard 8x8 bubble grid assumption
+            texSheet.numTilesY = 8;
+            texSheet.animation = ParticleSystemAnimationType.SingleRow;
+            texSheet.useRandomRow = true;
+        }
+        else
+        {
+            // Fallback to standard circle if no bubble material
+            renderer.material = new Material(Shader.Find("Sprites/Default"));
+        }
+        
         renderer.sortingLayerName = "Foreground";
         renderer.sortingOrder = 1;
     }
