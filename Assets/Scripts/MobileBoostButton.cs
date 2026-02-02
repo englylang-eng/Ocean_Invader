@@ -19,13 +19,10 @@ public class MobileBoostButton : MonoBehaviour, IPointerDownHandler
         }
 
         RectTransform rt = GetComponent<RectTransform>();
-        bool sizeMismatch = (rt != null && (Mathf.Abs(rt.sizeDelta.x - targetSize) > 1));
-        bool posMismatch = (rt != null && (Mathf.Abs(rt.anchoredPosition.y - 400) > 1));
-
-        if (sizeMismatch || posMismatch)
+        if (rt != null && (Mathf.Abs(rt.sizeDelta.x - targetSize) > 1))
         {
             rt.sizeDelta = new Vector2(targetSize, targetSize);
-            rt.anchoredPosition = new Vector2(-200, 400); // Improved position (Aligned with Joystick)
+            rt.anchoredPosition = new Vector2(-200, 380); // Improved position (Aligned with Joystick)
             
             // Also scale the icon if it exists (Child 0 usually)
             if (transform.childCount > 0)
@@ -38,7 +35,7 @@ public class MobileBoostButton : MonoBehaviour, IPointerDownHandler
                      iconRt.sizeDelta = new Vector2(iconSize, iconSize);
                 }
             }
-             Debug.Log($"MobileBoostButton: Auto-synced size to {targetSize}px and Y to 400.");
+             Debug.Log($"MobileBoostButton: Auto-synced size to {targetSize}px.");
         }
     }
 
