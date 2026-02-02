@@ -26,6 +26,10 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] public AudioSource musicSource; // Reference to Music Source
     private AudioSource sfxSource;
 
+    [Header("Custom Assets")]
+    [SerializeField] public Font customFont; // For lmns1
+    [SerializeField] public Sprite buttonShape; // For Knob
+
     private void Start()
     {
         // Find References
@@ -146,8 +150,10 @@ public class MainMenuManager : MonoBehaviour
 
     private void UpdateMenuButtons()
     {
-        // Load Font from Resources (Moved from Audio/lmns1.ttf)
-        Font limonFont = Resources.Load<Font>("lmns1");
+        // Use assigned font or fallback to Resources
+        Font limonFont = customFont;
+        if (limonFont == null) limonFont = Resources.Load<Font>("lmns1");
+
         if (limonFont == null) return;
 
         // 1. Play Button -> "elg"
@@ -233,8 +239,9 @@ public class MainMenuManager : MonoBehaviour
         Image img = btn.GetComponent<Image>();
         if (img != null)
         {
-            // Use standard Knob/Circle
-            Sprite circle = Resources.Load<Sprite>("Knob");
+            // Use assigned shape or fallback to Resources
+            Sprite circle = buttonShape;
+            if (circle == null) circle = Resources.Load<Sprite>("Knob");
             if (circle == null) circle = Resources.Load<Sprite>("UI/Skin/Knob");
             
             if (circle != null) 

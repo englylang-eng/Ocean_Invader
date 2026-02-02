@@ -191,15 +191,6 @@ public class GridController : MonoBehaviour
             // Get player level early for culling check
             int playerLevel = GameManager.PlayerLevel;
 
-            // NEW: Check for Golden Fish Spawn (Rare!) - 5% Chance
-            // We check this BEFORE the cap limit, so Golden Fish can always spawn regardless of population cap.
-            // This ensures they appear throughout the whole game.
-            if (Random.value < 0.05f)
-            {
-                 SpawnArenaFish(playerLevel, false, true); // Force Golden
-                 return;
-            }
-
             if (Fish.AllFish.Count >= maxFishCount)
             {
                 // CULLING LOGIC:
@@ -230,11 +221,11 @@ public class GridController : MonoBehaviour
             // Hard Limit: Max 3 Predators allowed at any time.
             bool forceEatable = (predatorCount >= 3);
 
-            SpawnArenaFish(playerLevel, forceEatable, false); // Normal Spawn
+            SpawnArenaFish(playerLevel, forceEatable);
         }
     }
 
-    private void SpawnArenaFish(int playerLevel, bool forceEatable, bool forceGolden = false)
+    private void SpawnArenaFish(int playerLevel, bool forceEatable)
     {
         // Spawn 1 fish per interval (Reduced count to prevent crowding)
         int count = 1;
@@ -257,11 +248,11 @@ public class GridController : MonoBehaviour
             // Randomly choose Left or Right side relative to Camera
             float spawnX = (Random.value > 0.5f) ? rightEdge : leftEdge;
             
-            // Fix: Clamp Spawn Y to Camera View Height
-            // Previously -14 to 14 caused fish to spawn way off-screen and "dive" vertically to get back in.
-            // Now we spawn them within the camera's vertical reach (plus margin).
-            float yRange = cam.orthographicSize; 
-            float spawnY = cam.transform.position.y + Random.Range(-yRange, yRange);
+            // Random Y within world vertical bounds (-14 to 14)
+            // But also clamp to be near camera Y to ensure visibility? 
+            // Let's keep it within world bounds but maybe biased towards camera Y?
+            // For now, world bounds -14 to 14 is safe.
+            float spawnY = Random.Range(-14f, 14f); 
 
             // Add slight randomness to X
             spawnX += Random.Range(-1f, 1f);
@@ -273,8 +264,7 @@ public class GridController : MonoBehaviour
             
             // SPECIAL: Check for Golden Fish Spawn (Rare!)
             // Chance: 5% (0.05) - Game Ready Setting
-            // UPDATED: Now controlled by parameter to allow spawning even when full
-            if (forceGolden)
+            if (Random.value < 0.05f)
             {
                 // Spawn Golden Fish!
                 Fish goldenPrefab = null;

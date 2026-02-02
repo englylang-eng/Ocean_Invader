@@ -115,11 +115,6 @@ public class FishMovement : MonoBehaviour
         {
             // Wander
             targetDir = GetWanderDirection();
-            
-            // Horizontal Bias: Dampen vertical wander to keep fish swimming mostly horizontally
-            // This mimics "normal" fish behavior better than full 360 freedom
-            targetDir.y *= 0.3f; 
-            targetDir = targetDir.normalized;
         }
 
         // Obstacle Avoidance

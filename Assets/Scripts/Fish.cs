@@ -275,15 +275,26 @@ public class Fish : MonoBehaviour
         // 1. Fit shape to sprite (Capsule is best for fish)
         // 2. Reduce size slightly (0.85f) for forgiveness
 
-        // Check if we already have a CapsuleCollider2D
-        CapsuleCollider2D capsule = GetComponent<CapsuleCollider2D>();
+        // Optimization: Use cached buffer to avoid GC allocation
+        if (collisionBuffer == null) collisionBuffer = new List<Collider2D>();
+        collisionBuffer.Clear();
+        GetComponents<Collider2D>(collisionBuffer);
+
+        CapsuleCollider2D capsule = null;
         
-        // If we have other collider types (Box, Circle, Polygon), remove them to enforce Capsule
-        Collider2D[] allCols = GetComponents<Collider2D>();
-        foreach(var c in allCols)
+        // Identify Capsule and Mark others for destruction
+        foreach(var c in collisionBuffer)
         {
-            if (c != capsule) Destroy(c);
+            if (c is CapsuleCollider2D cap)
+            {
+                capsule = cap;
+            }
+            else
+            {
+                Destroy(c);
+            }
         }
+        collisionBuffer.Clear();
 
         // Add capsule if missing
         if (capsule == null)

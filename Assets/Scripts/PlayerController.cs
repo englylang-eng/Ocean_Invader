@@ -831,6 +831,9 @@ public class PlayerController : MonoBehaviour
             {
                 xpMultiplier = 1f;
                 GuiManager.instance.ShowFloatingText(transform.position, "BinÞú Fmµta", Color.white);
+                
+                // Hide Double XP Icon
+                GuiManager.instance.SetDoubleXpStatus(false);
             }
         }
 
@@ -946,7 +949,10 @@ public class PlayerController : MonoBehaviour
     {
         xpMultiplier = multiplier;
         xpMultiplierTimer = duration;
-        // Ideally notify UI here
+        
+        // Notify UI to show Double XP Icon
+        GuiManager.instance.SetDoubleXpStatus(true);
+        
         // Limon Font Mapping: x -> ខ, * -> 8.
         // Solution: Use '2dg' which renders as '2ដង' (2 Times) in Khmer Limon.
         GuiManager.instance.ShowFloatingText(transform.position, "RtImas 2dg BinÞú ¡", new Color(1f, 0.8f, 0f, 1f));

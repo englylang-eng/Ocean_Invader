@@ -17,6 +17,14 @@ public class GuiManager : Singleton<GuiManager>
     [SerializeField]
     private Image XpBar;
 
+    [Header("Double XP Status")]
+    [SerializeField]
+    private Sprite doubleXpSprite; // Drag the sprite here
+    [SerializeField]
+    private float blinkSpeed = 0.5f; // Time between blinks
+    private GameObject doubleXpIconObj; 
+    private Coroutine doubleXpAnimCoroutine; 
+
     [Header("Growth Icons")]
     [SerializeField]
     private Image[] growthIcons;
@@ -286,6 +294,10 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
     [Header("Top Right Controls")]
     public Sprite fullscreenSprite;
     public Sprite pauseSprite;
+    
+    [Header("Custom Assets (Performance Boost)")]
+    [SerializeField] public Font customFont; // For lmns1
+    [SerializeField] public Sprite buttonShape; // For the circle background
     private GameObject fullscreenBtn; // Reference to control visibility
 
     private void SetupTopRightControls()
@@ -308,10 +320,9 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             Destroy(pauseBtn);
         }
         
-        // Use field if assigned, otherwise fallback to what we found
-        // User request: Prioritize "pause_icon" from Resources
-        Sprite finalPauseSprite = Resources.Load<Sprite>("pause_icon");
-        if (finalPauseSprite == null) finalPauseSprite = pauseSprite;
+        // Use field if assigned (Fastest), otherwise fallback to Resources (Slower)
+        Sprite finalPauseSprite = pauseSprite;
+        if (finalPauseSprite == null) finalPauseSprite = Resources.Load<Sprite>("pause_icon");
         if (finalPauseSprite == null) finalPauseSprite = existingPauseSprite;
         
         // Create Pause Button (Right-most)
@@ -329,6 +340,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }
 
         // 3. Handle Fullscreen Button (Left of Pause Button)
+        /* DISABLED PER USER REQUEST
         if (fullscreenSprite == null) fullscreenSprite = Resources.Load<Sprite>("fullscreen_icon");
         
         // Position: -50 (Pause Pos) - 30 (Pause Size) - 10 (Gap) = -90
@@ -339,6 +351,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
              fullscreenBtn.transform.SetParent(mainCanvas.transform, false);
              fullscreenBtn.transform.SetAsLastSibling();
         }
+        */
     }
 
     private GameObject CreateControlButton(string name, Sprite sprite, Vector2 anchoredPos, Vector2 size, UnityEngine.Events.UnityAction action)
@@ -415,6 +428,95 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             Screen.fullScreen = false;
         }
         #endif
+    }
+
+    public void SetDoubleXpStatus(bool active)
+    {
+        // 1. Create Icon if it doesn't exist yet (Lazy Initialization)
+        if (doubleXpIconObj == null && XpBar != null)
+        {
+             // Try to find existing one first (Hot-reload support)
+             Transform t = XpBar.transform.parent.Find("DoubleXpIcon");
+             if (t != null) doubleXpIconObj = t.gameObject;
+             
+             if (doubleXpIconObj == null && doubleXpSprite != null)
+             {
+                // Create a new GameObject for the icon
+                doubleXpIconObj = new GameObject("DoubleXpIcon");
+                
+                // Parent it to the same container as the XP Bar (likely the XP Bar Background)
+                doubleXpIconObj.transform.SetParent(XpBar.transform.parent, false); 
+                
+                // Add Image component
+                Image img = doubleXpIconObj.AddComponent<Image>();
+             }
+        }
+        
+        // 2. ALWAYS Update Settings (Size, Sprite, etc.) to ensure changes apply immediately
+        if (doubleXpIconObj != null)
+        {
+            Image img = doubleXpIconObj.GetComponent<Image>();
+            if (img != null)
+            {
+                img.sprite = doubleXpSprite;
+                img.preserveAspect = true;
+            }
+
+            RectTransform rt = doubleXpIconObj.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // Anchor to Right-Middle of parent
+                rt.anchorMin = new Vector2(1, 0.5f); 
+                rt.anchorMax = new Vector2(1, 0.5f);
+                rt.pivot = new Vector2(0, 0.5f); // Pivot on Left Edge
+                
+                // Position: 5px to the right, Vertically centered (0)
+                rt.anchoredPosition = new Vector2(5, 0); 
+                
+                // Size: Micro (User request: make it a bit smaller -> 6x6)
+                rt.sizeDelta = new Vector2(6, 6); 
+            }
+        }
+
+        // 3. Toggle Visibility & Animation
+        if (doubleXpIconObj != null)
+        {
+            doubleXpIconObj.SetActive(active);
+            
+            if (active)
+            {
+                // Start Animation
+                if (doubleXpAnimCoroutine != null) StopCoroutine(doubleXpAnimCoroutine);
+                doubleXpAnimCoroutine = StartCoroutine(AnimateDoubleXpIcon());
+            }
+            else
+            {
+                // Stop Animation
+                if (doubleXpAnimCoroutine != null)
+                {
+                    StopCoroutine(doubleXpAnimCoroutine);
+                    doubleXpAnimCoroutine = null;
+                }
+                // Reset Color
+                Image img = doubleXpIconObj.GetComponent<Image>();
+                if (img != null) img.color = Color.white;
+            }
+        }
+    }
+
+    private IEnumerator AnimateDoubleXpIcon()
+    {
+        Image img = doubleXpIconObj.GetComponent<Image>();
+        if (img == null) yield break;
+
+        while (true)
+        {
+            // Blink Logic: Toggle Alpha
+            img.color = new Color(1, 1, 1, 0.2f); // Dim
+            yield return new WaitForSeconds(blinkSpeed);
+            img.color = Color.white; // Bright
+            yield return new WaitForSeconds(blinkSpeed);
+        }
     }
 
     private void Update()
@@ -620,9 +722,14 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         Image img = btnObj.GetComponent<Image>();
         if (img != null)
         {
-            // Force the Circle Sprite to ensure uniform shape (User request: "same circle shape")
-            // We create a new sprite if needed or if the current one isn't our procedural circle
-            if (img.sprite == null || img.sprite.name != "ProceduralCircle")
+            // Use assigned shape if available (Performance Boost)
+            if (buttonShape != null)
+            {
+                 img.sprite = buttonShape;
+                 img.name = "CustomShape";
+            }
+            // Otherwise generate procedural circle
+            else if (img.sprite == null || img.sprite.name != "ProceduralCircle")
             {
                  img.sprite = CreateCircleSprite(256, 2);
                  img.sprite.name = "ProceduralCircle";
@@ -655,10 +762,12 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
             txt.alignByGeometry = true; // Improve centering for fonts with offsets
             
             // Fix: Use Limon Font for Khmer Text (User Request)
-            Font standardFont = Resources.Load<Font>("lmns1");
+            Font standardFont = customFont;
+            if (standardFont == null) standardFont = Resources.Load<Font>("lmns1");
             
             // Fallback: LegacyRuntime or Arial
             if (standardFont == null) standardFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
             if (standardFont == null) standardFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
             
             // Fallback: Find ANY font if specific ones fail
@@ -764,6 +873,93 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         texture.SetPixels(colors);
         texture.Apply();
 
+        return Sprite.Create(texture, new Rect(0, 0, resolution, resolution), new Vector2(0.5f, 0.5f));
+    }
+
+    private Sprite CreatePauseIconSprite(int resolution)
+    {
+        Texture2D texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Point; // Sharp edges
+        Color[] colors = new Color[resolution * resolution];
+        
+        // Clear to transparent
+        for (int i = 0; i < colors.Length; i++) colors[i] = Color.clear;
+
+        int barWidth = resolution / 3; // Two bars, total width ~2/3
+        int gap = resolution / 6;
+        int height = (int)(resolution * 0.7f);
+        int startY = (resolution - height) / 2;
+        int startX1 = (resolution / 2) - gap - barWidth; // Left Bar
+        int startX2 = (resolution / 2) + gap; // Right Bar
+
+        for (int y = startY; y < startY + height; y++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                // Left Bar
+                if (x >= startX1 && x < startX1 + barWidth)
+                {
+                    colors[y * resolution + x] = Color.white;
+                }
+                // Right Bar
+                else if (x >= startX2 && x < startX2 + barWidth)
+                {
+                    colors[y * resolution + x] = Color.white;
+                }
+            }
+        }
+
+        texture.SetPixels(colors);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, resolution, resolution), new Vector2(0.5f, 0.5f));
+    }
+
+    private Sprite CreateFullscreenIconSprite(int resolution)
+    {
+        Texture2D texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Point;
+        Color[] colors = new Color[resolution * resolution];
+
+        // Clear
+        for (int i = 0; i < colors.Length; i++) colors[i] = Color.clear;
+
+        int thickness = resolution / 8;
+        int padding = resolution / 6;
+        int size = resolution - (padding * 2);
+
+        for (int y = 0; y < resolution; y++)
+        {
+            for (int x = 0; x < resolution; x++)
+            {
+                // Check if inside the box area
+                bool inBox = (x >= padding && x < resolution - padding) && (y >= padding && y < resolution - padding);
+                
+                if (inBox)
+                {
+                    // Corners logic
+                    bool left = x < padding + thickness;
+                    bool right = x >= resolution - padding - thickness;
+                    bool bottom = y < padding + thickness;
+                    bool top = y >= resolution - padding - thickness;
+
+                    // Draw corners only (Top-Left, Top-Right, Bottom-Left, Bottom-Right)
+                    if ((left || right) && (top || bottom))
+                    {
+                        colors[y * resolution + x] = Color.white;
+                    }
+                    // Connect horizontal/vertical lines slightly?
+                    // Let's just draw a hollow box for simplicity, looks like maximize
+                    else if (left || right || bottom || top)
+                    {
+                         // Full Box
+                         colors[y * resolution + x] = Color.white;
+                    }
+                }
+            }
+        }
+
+        texture.SetPixels(colors);
+        texture.Apply();
         return Sprite.Create(texture, new Rect(0, 0, resolution, resolution), new Vector2(0.5f, 0.5f));
     }
 

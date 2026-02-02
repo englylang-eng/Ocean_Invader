@@ -1058,6 +1058,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   XpBar: {fileID: 1031367892}
+  doubleXpSprite: {fileID: 21300000, guid: e7fc5f475c77e4af1af71ff8f51f7a2b, type: 3}
+  blinkSpeed: 0.5
   growthIcons:
   - {fileID: 136112635}
   - {fileID: 1788601459}
@@ -1083,8 +1085,10 @@ MonoBehaviour:
   floatingTextPrefab: {fileID: 7447932585375443293, guid: a22353b65bbe5514b9a720e3b79c5e20,
     type: 3}
   poolSize: 20
-  fullscreenSprite: {fileID: 0}
-  pauseSprite: {fileID: 0}
+  fullscreenSprite: {fileID: 21300000, guid: d5eecfa0678ba6442a01c8c474bb0466, type: 3}
+  pauseSprite: {fileID: 21300000, guid: 4221cbb7e1437c94188affba03b4ce31, type: 3}
+  customFont: {fileID: 0}
+  buttonShape: {fileID: 0}
 --- !u!114 &549443012
 MonoBehaviour:
   m_ObjectHideFlags: 0
