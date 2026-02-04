@@ -93,12 +93,7 @@ public class ObjectPoolManager : MonoBehaviour
             }
             
             poolDictionary[key].Enqueue(obj);
-            
-            // We can keep it in activeObjects or remove it. 
-            // Removing it is safer to prevent memory leaks if we destroy the pool, 
-            // but keeping it is faster. 
-            // Let's keep it to avoid allocs, but we need to handle "Destroy" case if scene unloads.
-            // Actually, for simplicity, let's just keep it tracked.
+            activeObjects.Remove(obj);
         }
         else
         {
@@ -113,5 +108,23 @@ public class ObjectPoolManager : MonoBehaviour
     {
         poolDictionary.Clear();
         activeObjects.Clear();
+    }
+    
+    public void PreWarm(GameObject prefab, int count)
+    {
+        if (prefab == null || count <= 0) return;
+        string key = prefab.name;
+        if (!poolDictionary.ContainsKey(key))
+        {
+            poolDictionary.Add(key, new Queue<GameObject>());
+        }
+        var queue = poolDictionary[key];
+        for (int i = 0; i < count; i++)
+        {
+            GameObject obj = Instantiate(prefab);
+            obj.name = prefab.name;
+            obj.SetActive(false);
+            queue.Enqueue(obj);
+        }
     }
 }

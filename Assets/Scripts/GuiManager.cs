@@ -293,20 +293,19 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
     }
 
     [Header("Top Right Controls")]
-    public Sprite fullscreenSprite;
     public Sprite pauseSprite;
+    private static Sprite _cachedPauseIcon;
     
     [Header("Custom Assets (Performance Boost)")]
     [SerializeField] public Font customFont; // For lmns1
     [SerializeField] public Sprite buttonShape; // For the circle background
-    private GameObject fullscreenBtn; // Reference to control visibility
 
     private void SetupTopRightControls()
     {
         // 1. Get Reference to Main Canvas (Parent of Controls)
         Canvas mainCanvas = null;
         if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
-        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindFirstObjectByType<Canvas>();
         
         if (mainCanvas == null) return; 
 
@@ -323,7 +322,11 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         
         // Use field if assigned (Fastest), otherwise fallback to Resources (Slower)
         Sprite finalPauseSprite = pauseSprite;
-        if (finalPauseSprite == null) finalPauseSprite = Resources.Load<Sprite>("pause_icon");
+        if (finalPauseSprite == null)
+        {
+            if (_cachedPauseIcon == null) _cachedPauseIcon = Resources.Load<Sprite>("pause_icon");
+            finalPauseSprite = _cachedPauseIcon;
+        }
         if (finalPauseSprite == null) finalPauseSprite = existingPauseSprite;
         
         // Create Pause Button (Right-most)
@@ -1254,7 +1257,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         Transform parent = null;
         Canvas mainCanvas = null;
         if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
-        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindFirstObjectByType<Canvas>();
         
         if (mainCanvas != null) parent = mainCanvas.transform;
         else if (XpBar != null) parent = XpBar.transform.parent;
@@ -1345,7 +1348,7 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         Transform parent = null;
         Canvas mainCanvas = null;
         if (pausedBg != null) mainCanvas = pausedBg.GetComponentInParent<Canvas>();
-        if (mainCanvas == null) mainCanvas = FindObjectOfType<Canvas>();
+        if (mainCanvas == null) mainCanvas = FindFirstObjectByType<Canvas>();
         
         if (mainCanvas != null) parent = mainCanvas.transform;
         else if (XpBar != null) parent = XpBar.transform.parent;
@@ -1607,7 +1610,6 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         if(isPaused)
         {
             pauseBtn.SetActive(false);
-            if (fullscreenBtn != null) fullscreenBtn.SetActive(false); // Hide Fullscreen Button
             
             resumeBtn.SetActive(true);
             if(restartBtn != null) restartBtn.SetActive(true);
@@ -1629,7 +1631,6 @@ private string victoryMessage = "GbGrsaTr Gñk)anrYcCIvitkñúgvKÁenH";
         }else
         {
             pauseBtn.SetActive(true);
-            if (fullscreenBtn != null) fullscreenBtn.SetActive(true); // Show Fullscreen Button
             
             resumeBtn.SetActive(false);
             if(restartBtn != null) restartBtn.SetActive(false);

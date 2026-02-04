@@ -114,6 +114,7 @@ public class PlayerController : MonoBehaviour
     
     // Visuals
     private float currentBaseScale = 1f;
+    private float lastBubbleScaleApplied = -1f;
     private SpriteRenderer spriteRenderer;
     
     // Physics & Movement
@@ -304,24 +305,18 @@ public class PlayerController : MonoBehaviour
     private void UpdateBubbleParticles()
     {
         if (speedEffect == null) return;
+        
+        if (lastBubbleScaleApplied == currentBaseScale) return;
+        lastBubbleScaleApplied = currentBaseScale;
 
         float scale = currentBaseScale;
-
-        // Position: Behind the player
-        // Assuming player faces Right (X+), tail is at -X.
-        // Scale offset by player size.
-        // Adjusted offset to be slightly behind center
         speedEffect.transform.localPosition = new Vector3(-0.8f * scale, -0.1f * scale, 0f);
 
         var main = speedEffect.main;
-        // Scale start size with player
         main.startSize = new ParticleSystem.MinMaxCurve(0.1f * scale, 0.3f * scale);
-        // Faster bubbles for bigger/faster player? Or constant?
-        // Let's scale speed slightly
         main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f * scale, 2.0f * scale); 
 
         var emission = speedEffect.emission;
-        // More bubbles for bigger player?
         emission.rateOverTime = 20f * scale; 
 
         var shape = speedEffect.shape;

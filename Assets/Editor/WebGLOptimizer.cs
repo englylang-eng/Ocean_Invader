@@ -59,6 +59,15 @@ public class WebGLOptimizer : EditorWindow
             Directory.CreateDirectory(buildPath);
         }
 
+        // Guard: Ensure WebGL build support is installed for this Editor
+        if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.WebGL, BuildTarget.WebGL))
+        {
+            Debug.LogError("WebGL build target is not supported in this Editor. " +
+                           "Install the WebGL Build Support module for this Unity version via Unity Hub, " +
+                           "then re-open the project and try again.");
+            return;
+        }
+
         // Force correct template setting
         if (PlayerSettings.WebGL.template != "PROJECT:MobileFriendly")
         {
@@ -84,7 +93,17 @@ public class WebGLOptimizer : EditorWindow
         buildPlayerOptions.target = BuildTarget.WebGL;
         buildPlayerOptions.options = BuildOptions.None;
 
-        UnityEditor.Build.Reporting.BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+        UnityEditor.Build.Reporting.BuildReport report = null;
+        try
+        {
+            report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+        }
+        catch (UnityException ue)
+        {
+            Debug.LogError($"WebGL build failed early: {ue.Message}. " +
+                           "Ensure the WebGL Build Support module is installed via Unity Hub and retry.");
+            return;
+        }
         UnityEditor.Build.Reporting.BuildSummary summary = report.summary;
 
         if (summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)

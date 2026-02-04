@@ -73,6 +73,15 @@ public class SharkHazard : MonoBehaviour
             _sharedCanvasObj.SetActive(false);
         }
     }
+    
+    private void OnDisable()
+    {
+        EventManager.StopListening<bool>("gamePaused", OnGamePaused);
+        if (_sharedCanvasObj != null && _sharedCanvasObj.activeSelf)
+        {
+            _sharedCanvasObj.SetActive(false);
+        }
+    }
 
     private void OnGamePaused(bool isPaused)
     {
@@ -434,8 +443,21 @@ public class SharkHazard : MonoBehaviour
                 (direction < 0 && transform.position.x < leftEdge))
             {
                 hasPassedScreen = true;
-                Destroy(gameObject, lifeTimeAfterPass); // Cleanup shortly after
+                StartCoroutine(DespawnAfterDelay(lifeTimeAfterPass));
             }
+        }
+    }
+
+    private System.Collections.IEnumerator DespawnAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (ObjectPoolManager.Instance != null)
+        {
+            ObjectPoolManager.Instance.Despawn(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
         }
     }
 

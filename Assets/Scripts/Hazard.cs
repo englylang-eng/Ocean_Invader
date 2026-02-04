@@ -1,7 +1,11 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Hazard : MonoBehaviour
 {
+    private static Shader cachedParticleShader;
+    private static Dictionary<Texture2D, Material> cachedParticleMaterials = new Dictionary<Texture2D, Material>();
+    
     [SerializeField]
     private float fallSpeed = 3f;
     [SerializeField]
@@ -263,7 +267,14 @@ public class Hazard : MonoBehaviour
             // Use dynamic calculation to ensure full sprite clearance
             if (transform.position.y >= GetRetractTargetY())
             {
-                Destroy(gameObject);
+                if (ObjectPoolManager.Instance != null)
+                {
+                    ObjectPoolManager.Instance.Despawn(gameObject);
+                }
+                else
+                {
+                    Destroy(gameObject);
+                }
             }
         }
     }
@@ -303,14 +314,22 @@ public class Hazard : MonoBehaviour
         }
         else if (bubbleTexture != null)
         {
-            Shader shader = Shader.Find("Particles/Standard Unlit");
-            if (shader == null) shader = Shader.Find("Mobile/Particles/Alpha Blended");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            
-            if (shader != null)
+            if (cachedParticleShader == null)
             {
-                Material mat = new Material(shader);
-                mat.mainTexture = bubbleTexture;
+                cachedParticleShader = Shader.Find("Particles/Standard Unlit");
+                if (cachedParticleShader == null) cachedParticleShader = Shader.Find("Mobile/Particles/Alpha Blended");
+                if (cachedParticleShader == null) cachedParticleShader = Shader.Find("Sprites/Default");
+            }
+            
+            if (cachedParticleShader != null)
+            {
+                Material mat;
+                if (!cachedParticleMaterials.TryGetValue(bubbleTexture, out mat) || mat == null)
+                {
+                    mat = new Material(cachedParticleShader);
+                    mat.mainTexture = bubbleTexture;
+                    cachedParticleMaterials[bubbleTexture] = mat;
+                }
                 renderer.material = mat;
             }
         }

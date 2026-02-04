@@ -112,6 +112,62 @@ public class GridController : MonoBehaviour
             GameObject poolObj = new GameObject("ObjectPoolManager");
             poolObj.AddComponent<ObjectPoolManager>();
         }
+        
+        _camCacheFrame = -1;
+
+        if (hazardPrefab != null && ObjectPoolManager.Instance != null)
+        {
+            ObjectPoolManager.Instance.PreWarm(hazardPrefab, 4);
+        }
+        else if (hazardSprite != null && ObjectPoolManager.Instance != null)
+        {
+            if (hazardTemplate == null)
+            {
+                hazardTemplate = new GameObject("Hazard_Template");
+                hazardTemplate.transform.SetParent(transform);
+                hazardTemplate.SetActive(false);
+                SpriteRenderer sr = hazardTemplate.AddComponent<SpriteRenderer>();
+                sr.sprite = hazardSprite;
+                BoxCollider2D col = hazardTemplate.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                if (sr.sprite != null) col.size = sr.sprite.bounds.size;
+                Hazard hz = hazardTemplate.AddComponent<Hazard>();
+                hz.autoConfigureCollider = true;
+                hazardTemplate.tag = "Enemy";
+                hazardTemplate.transform.localScale = Vector3.one * hazardScale;
+            }
+            ObjectPoolManager.Instance.PreWarm(hazardTemplate, 4);
+        }
+
+        if (sharkPrefab != null && ObjectPoolManager.Instance != null)
+        {
+            ObjectPoolManager.Instance.PreWarm(sharkPrefab, 2);
+        }
+        else if (ObjectPoolManager.Instance != null)
+        {
+            if (sharkTemplate == null)
+            {
+                sharkTemplate = new GameObject("Shark_Template");
+                sharkTemplate.transform.SetParent(transform);
+                sharkTemplate.SetActive(false);
+                Animator anim = sharkTemplate.AddComponent<Animator>();
+                if (sharkAnimController != null)
+                {
+                    anim.runtimeAnimatorController = sharkAnimController;
+                }
+                GameObject gfx = new GameObject("Gfx");
+                gfx.transform.SetParent(sharkTemplate.transform);
+                gfx.transform.localPosition = Vector3.zero;
+                SpriteRenderer sr = gfx.AddComponent<SpriteRenderer>();
+                if (sharkSprite != null) sr.sprite = sharkSprite;
+                BoxCollider2D col = sharkTemplate.AddComponent<BoxCollider2D>();
+                col.isTrigger = true;
+                if (sr.sprite != null) col.size = sr.sprite.bounds.size;
+                else col.size = new Vector2(2f, 1f);
+                sharkTemplate.AddComponent<SharkHazard>();
+            }
+            ObjectPoolManager.Instance.PreWarm(sharkTemplate, 2);
+        }
 
         EventManager.StartListening<GameObject>("PlayerSpawn", (spawnedObject) =>
         {
@@ -137,6 +193,12 @@ public class GridController : MonoBehaviour
     private void HandleArenaSpawning()
     {
         if (enemyLibrary == null) return;
+        
+        UpdateCameraCache();
+
+        // Clean inactive references for hazards and shark
+        if (activeShark != null && !activeShark.activeSelf) activeShark = null;
+        activeHazards.RemoveAll(h => h == null || !h.activeSelf);
 
         // Periodic Cleanup (Every 60 frames / ~1s) to remove far-off fish
         // This ensures high-level fish that leave the screen are eventually destroyed
@@ -248,17 +310,12 @@ public class GridController : MonoBehaviour
         int count = 1;
         
         // Calculate Camera View Boundaries
-        Camera cam = Camera.main;
-        if (cam == null) return;
-
-        float camHeight = 2f * cam.orthographicSize;
-        float camWidth = camHeight * cam.aspect;
-        float halfWidth = camWidth / 2f;
+        if (_cam == null) return;
         
         // Spawn just outside the camera view (buffer of 2 units)
         float buffer = 2f;
-        float rightEdge = cam.transform.position.x + halfWidth + buffer;
-        float leftEdge = cam.transform.position.x - halfWidth - buffer;
+        float rightEdge = _camPos.x + _halfWidth + buffer;
+        float leftEdge = _camPos.x - _halfWidth - buffer;
 
         for (int i = 0; i < count; i++)
         {
@@ -329,7 +386,7 @@ public class GridController : MonoBehaviour
                         // Force Level 1 so it can be eaten by Level 2+ fish and the Player
                         golden.ForceLevel(1);
 
-                        OrientFish(golden, spawnPos, new Vector2(cam.transform.position.x, spawnPos.y));
+                        OrientFish(golden, spawnPos, new Vector2(_camPos.x, spawnPos.y));
                         return; // Done for this cycle
                     }
                 }
@@ -444,7 +501,7 @@ public class GridController : MonoBehaviour
                         {
                             fish.school = school;
                             fish.formationOffset = schoolOffset;
-                            OrientFish(fish, finalPos, new Vector2(cam.transform.position.x, finalPos.y));
+                        OrientFish(fish, finalPos, new Vector2(_camPos.x, finalPos.y));
                         }
                     }
                 }
@@ -453,10 +510,7 @@ public class GridController : MonoBehaviour
                     // Spawn Single (10% chance for L01-00, or 100% for others)
                     // FIX: Don't override level. Respect Prefab settings.
                     Fish fish = enemyLibrary.SpawnSpecific(prefabToSpawn, spawnPos, 0f, 0f, -1);
-                    if (fish != null)
-                    {
-                        OrientFish(fish, spawnPos, new Vector2(cam.transform.position.x, spawnY));
-                    }
+                    if (fish != null) OrientFish(fish, spawnPos, new Vector2(_camPos.x, spawnY));
                 }
             }
             
@@ -468,20 +522,16 @@ public class GridController : MonoBehaviour
 
     private bool CullObsoleteFish(int playerLevel, bool forceRecycle = false)
     {
-        if (Camera.main == null) return false;
-
-        // Calculate Camera Bounds (with margin)
-        float camHeight = 2f * Camera.main.orthographicSize;
-        float camWidth = camHeight * Camera.main.aspect;
-        Vector3 camPos = Camera.main.transform.position;
+        UpdateCameraCache();
+        if (_cam == null) return false;
         
         // Define a bounding box for the visible area + margin
         // Fish outside this box are candidates for culling
-        Bounds viewBounds = new Bounds(new Vector3(camPos.x, camPos.y, 0), new Vector3(camWidth + 5f, camHeight + 5f, 100f));
+        Bounds viewBounds = new Bounds(new Vector3(_camPos.x, _camPos.y, 0), new Vector3(_camWidth + 5f, _camHeight + 5f, 100f));
 
         // Define a larger bounding box for "Distant" culling (Cleanup)
         // Any fish that wanders this far (high level or not) should be removed to free up memory/slots
-        Bounds distantBounds = new Bounds(new Vector3(camPos.x, camPos.y, 0), new Vector3(camWidth + 30f, camHeight + 30f, 100f));
+        Bounds distantBounds = new Bounds(new Vector3(_camPos.x, _camPos.y, 0), new Vector3(_camWidth + 30f, _camHeight + 30f, 100f));
 
         // Find a candidate
         foreach (var fish in Fish.AllFish)
@@ -512,13 +562,32 @@ public class GridController : MonoBehaviour
 
         return false;
     }
+    
+    private Camera _cam;
+    private Vector3 _camPos;
+    private float _camHeight;
+    private float _camWidth;
+    private float _halfWidth;
+    private int _camCacheFrame;
+    
+    private void UpdateCameraCache()
+    {
+        if (Time.frameCount == _camCacheFrame) return;
+        _cam = Camera.main;
+        if (_cam == null) return;
+        _camHeight = 2f * _cam.orthographicSize;
+        _camWidth = _camHeight * _cam.aspect;
+        _halfWidth = _camWidth / 2f;
+        _camPos = _cam.transform.position;
+        _camCacheFrame = Time.frameCount;
+    }
 
     private IEnumerator SpawnHazardsRoutine()
     {
         isSpawningHazards = true;
 
         // Double check count (activeHazards should be empty when calling this, but safety first)
-        activeHazards.RemoveAll(h => h == null);
+        activeHazards.RemoveAll(h => h == null || !h.activeSelf);
         if (activeHazards.Count > 0) 
         {
             isSpawningHazards = false;
@@ -542,7 +611,10 @@ public class GridController : MonoBehaviour
 
             if (hazardPrefab != null)
             {
-                hazardObj = Instantiate(hazardPrefab);
+                if (ObjectPoolManager.Instance != null)
+                    hazardObj = ObjectPoolManager.Instance.Spawn(hazardPrefab, Vector3.zero, Quaternion.identity);
+                else
+                    hazardObj = Instantiate(hazardPrefab);
             }
             else if (hazardSprite != null)
             {
@@ -567,7 +639,10 @@ public class GridController : MonoBehaviour
                     hazardTemplate.transform.localScale = Vector3.one * hazardScale;
                 }
 
-                hazardObj = Instantiate(hazardTemplate);
+                if (ObjectPoolManager.Instance != null)
+                    hazardObj = ObjectPoolManager.Instance.Spawn(hazardTemplate, Vector3.zero, Quaternion.identity);
+                else
+                    hazardObj = Instantiate(hazardTemplate);
                 hazardObj.name = "Hazard_Hook_" + i;
                 hazardObj.SetActive(true);
 
@@ -733,7 +808,7 @@ public class GridController : MonoBehaviour
 
     private void SpawnShark()
     {
-        if (activeShark != null) return;
+        if (activeShark != null && activeShark.activeSelf) return;
 
         // FIXED: Spawn based on World Coordinates (Arena) instead of Camera View.
         // This prevents the shark from feeling "attached" to the player's movement.
@@ -757,7 +832,10 @@ public class GridController : MonoBehaviour
 
         if (sharkPrefab != null)
         {
-            sharkObj = Instantiate(sharkPrefab, spawnPos, Quaternion.identity);
+            if (ObjectPoolManager.Instance != null)
+                sharkObj = ObjectPoolManager.Instance.Spawn(sharkPrefab, spawnPos, Quaternion.identity);
+            else
+                sharkObj = Instantiate(sharkPrefab, spawnPos, Quaternion.identity);
         }
         else
         {
@@ -796,7 +874,10 @@ public class GridController : MonoBehaviour
                 // Original code didn't set tag for Shark.
             }
 
-            sharkObj = Instantiate(sharkTemplate, spawnPos, Quaternion.identity);
+            if (ObjectPoolManager.Instance != null)
+                sharkObj = ObjectPoolManager.Instance.Spawn(sharkTemplate, spawnPos, Quaternion.identity);
+            else
+                sharkObj = Instantiate(sharkTemplate, spawnPos, Quaternion.identity);
             sharkObj.name = "Shark_Hazard";
             sharkObj.SetActive(true);
             

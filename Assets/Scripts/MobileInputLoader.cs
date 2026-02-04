@@ -103,6 +103,15 @@ public class MobileInputLoader : MonoBehaviour
             EventManager.StopListening<bool>("gamePaused", OnGamePaused);
         }
     }
+    
+    private void OnDisable()
+    {
+        // Handle pooled or temporary disable scenarios
+        if (EventManager.HasInstance)
+        {
+            EventManager.StopListening<bool>("gamePaused", OnGamePaused);
+        }
+    }
 
     private void OnGamePaused(bool isPaused)
     {

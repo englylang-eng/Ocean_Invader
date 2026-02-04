@@ -16,8 +16,7 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
 
     public Vector2 InputDirection { get; private set; }
 
-    private Vector2 initialPos;
-    private Canvas canvas;
+    // Removed unused cached members
 
     private void Awake()
     {
@@ -26,8 +25,7 @@ public class MobileJoystick : MonoBehaviour, IDragHandler, IPointerUpHandler, IP
         if (background == null) background = GetComponent<RectTransform>();
         if (handle == null && transform.childCount > 0) handle = transform.GetChild(0).GetComponent<RectTransform>();
         
-        canvas = GetComponentInParent<Canvas>();
-        initialPos = background.anchoredPosition;
+        // No need to cache parent Canvas or initial position
 
         // Determine if we should show or hide
         bool shouldShow = false;

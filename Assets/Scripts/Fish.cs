@@ -271,7 +271,7 @@ public class Fish : MonoBehaviour
             texSheet.numTilesX = 8; // Standard 8x8 bubble grid assumption
             texSheet.numTilesY = 8;
             texSheet.animation = ParticleSystemAnimationType.SingleRow;
-            texSheet.useRandomRow = true;
+            texSheet.rowMode = ParticleSystemAnimationRowMode.Random;
         }
         else
         {

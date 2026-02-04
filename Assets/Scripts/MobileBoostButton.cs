@@ -48,4 +48,14 @@ public class MobileBoostButton : MonoBehaviour, IPointerDownHandler
     {
         lastPressedFrame = Time.frameCount;
     }
+    
+    private void OnDisable()
+    {
+        lastPressedFrame = -1;
+    }
+    
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
 }

@@ -36,6 +36,9 @@ public class FishMovement : MonoBehaviour
     private Vector2 currentDirection;
     private Vector2 wanderTarget;
     private Fish fishData;
+    private int aiTickOffset;
+    private Vector2 cachedAvoidanceDir;
+    private Vector2 cachedBoundsDir;
 
     private void Awake()
     {
@@ -69,6 +72,9 @@ public class FishMovement : MonoBehaviour
         player = GameManager.instance != null ? GameManager.instance.playerGameObject?.transform : null;
         currentDirection = transform.right;
         if (currentDirection == Vector2.zero) currentDirection = Vector2.right;
+        aiTickOffset = Random.Range(0, 5);
+        cachedAvoidanceDir = Vector2.zero;
+        cachedBoundsDir = Vector2.zero;
         
         // Reset wander target
         float theta = Random.value * 2 * Mathf.PI;
@@ -117,15 +123,18 @@ public class FishMovement : MonoBehaviour
             targetDir = GetWanderDirection();
         }
 
-        // Obstacle Avoidance
-        Vector2 avoidDir = GetAvoidanceDirection();
+        if ((Time.frameCount + aiTickOffset) % 5 == 0)
+        {
+            cachedAvoidanceDir = GetAvoidanceDirection();
+            cachedBoundsDir = GetBoundaryAvoidanceDirection();
+        }
+        Vector2 avoidDir = cachedAvoidanceDir;
         if (avoidDir != Vector2.zero)
         {
             targetDir = Vector2.Lerp(targetDir, avoidDir, 0.8f).normalized;
         }
 
-        // Boundary Avoidance (Keep on Screen)
-        Vector2 boundsDir = GetBoundaryAvoidanceDirection();
+        Vector2 boundsDir = cachedBoundsDir;
         if (boundsDir != Vector2.zero)
         {
             // Strong override to keep fish on screen

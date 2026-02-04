@@ -12,10 +12,28 @@ public class EnemyLibrary : ScriptableObject
 
 
     private int maxLevel = 0;
+    private Dictionary<int, SpawnPool> levelToPool = new Dictionary<int, SpawnPool>();
+    private List<int> sortedLevels = new List<int>();
 
     private void OnEnable()
     {
-        maxLevel = pools.Max(x => x.Level);
+        if (pools == null) return;
+        
+        levelToPool.Clear();
+        sortedLevels.Clear();
+        
+        for (int i = 0; i < pools.Length; i++)
+        {
+            var lvl = pools[i].Level;
+            if (!levelToPool.ContainsKey(lvl))
+            {
+                levelToPool[lvl] = pools[i];
+                sortedLevels.Add(lvl);
+            }
+        }
+        
+        sortedLevels.Sort();
+        maxLevel = (sortedLevels.Count > 0) ? sortedLevels[sortedLevels.Count - 1] : 0;
         Debug.Log("Max available spawn pool level: " + maxLevel.ToString());
     }
 
@@ -28,15 +46,24 @@ public class EnemyLibrary : ScriptableObject
     {
         if (pools == null || pools.Length == 0) return null;
 
-        // 1. Try Exact Match
-        SpawnPool match = pools.FirstOrDefault(x => x.Level == level);
-        if (match != null) return match;
-
-        // 2. Fallback: Find highest level available that is <= requested level
-        // e.g. Requested 4, Have [1, 2, 3, 6]. Returns 3.
-        return pools.Where(x => x.Level <= level)
-                    .OrderByDescending(x => x.Level)
-                    .FirstOrDefault();
+        if (levelToPool.TryGetValue(level, out var exact))
+        {
+            return exact;
+        }
+        
+        if (sortedLevels.Count == 0) return null;
+        
+        // Find highest available level <= requested
+        for (int i = sortedLevels.Count - 1; i >= 0; i--)
+        {
+            int candidate = sortedLevels[i];
+            if (candidate <= level)
+            {
+                return levelToPool[candidate];
+            }
+        }
+        
+        return null;
     }
 
     /// <summary>
